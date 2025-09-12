@@ -18,8 +18,22 @@ log = setup_logger(level=logging.DEBUG)
 #     log.warning("Disconnected (rc=%s).", rc)
 
 
+def msg_handler_1() -> bool:
+    log.info("Message handler 1 called")
+    return True
+
+
+def msg_handler_2() -> bool:
+    log.info("Message handler 2 called")
+    return True
+
+
 def handle_message(topic: str, payload: bytes):
     log.info("Got message on %s: %s", topic, payload.decode(errors="replace"))
+    if all(f() for f in (msg_handler_1, msg_handler_2)):
+        log.info("All message handlers executed successfully")
+    else:
+        log.warning("Message handler failed")
 
 
 def main():
