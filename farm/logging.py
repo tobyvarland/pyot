@@ -51,7 +51,7 @@ def setup_logger(
             h.close()
 
     # Log message format
-    fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
     # Configure file handler with rotation
     file_handler = TimedRotatingFileHandler(
