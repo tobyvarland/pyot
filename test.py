@@ -10,14 +10,6 @@ from farm.mqtt import default_client
 log = setup_logger(level=logging.DEBUG)
 
 
-# def handle_connect():
-#     log.info("Connected! Ready to receive messages.")
-
-
-# def handle_disconnect(rc: int):
-#     log.warning("Disconnected (rc=%s).", rc)
-
-
 def msg_handler_1() -> bool:
     log.info("Message handler 1 called")
     return True
@@ -44,10 +36,8 @@ def main():
     load_dotenv(dotenv_path=env_path)
     TEST_MQTT_TOPIC = os.getenv("TEST_MQTT_TOPIC", "#")
 
-    # Create client and attach handllers & logger
+    # Create client and attach handller & logger
     client = default_client(topic=TEST_MQTT_TOPIC)
-    # client.set_on_connect(handle_connect)
-    # client.set_on_disconnect(handle_disconnect)
     client.on_message = handle_message
     client.logger = log
 
