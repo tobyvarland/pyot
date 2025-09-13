@@ -4,9 +4,9 @@ import time
 
 from dotenv import load_dotenv
 
-from farm.handler import BaseHandler, PushToServerHandler, SyncShopOrderRecipesHandler
-from farm.logging import setup_logger
-from farm.mqtt import default_client
+from pyot.handler import BaseHandler, PushToServerHandler, SyncShopOrderRecipesHandler
+from pyot.logging import setup_logger
+from pyot.mqtt import default_client
 
 # Set up logger
 log = setup_logger(level=logging.INFO)

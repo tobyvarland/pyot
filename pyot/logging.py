@@ -6,7 +6,7 @@ from logging.handlers import TimedRotatingFileHandler
 
 
 def setup_logger(
-    name: str = "farm",
+    name: str = "pyot",
     level: int = logging.INFO,
     logs_dir: str = "logs",
     *,
