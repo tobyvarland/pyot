@@ -165,7 +165,7 @@ class MQTTClient:
         with self._lock:
             if self._loop_running:
                 return
-            self.log.info("MQTT connecting to %s:%s ...", self.host, self.port)
+            self.log.info("MQTT connecting to %s:%s", self.host, self.port)
             try:
                 self._client.connect(self.host, self.port, keepalive=self.keepalive)
             except Exception as e:
@@ -185,7 +185,7 @@ class MQTTClient:
                 self._client.disconnect()
             finally:
                 self._loop_running = False
-                self.log.info("MQTT disconnected.")
+                self.log.info("MQTT disconnected")
 
     def publish(
         self,
@@ -229,10 +229,10 @@ class MQTTClient:
             extra: Additional arguments.
         """
         if reason_code == 0:
-            self.log.info("MQTT connected.")
+            self.log.debug("MQTT connected")
             with self._lock:
                 for filt, q in self._route_qos.items():
-                    self.log.info("MQTT subscribing to %s (qos=%d)", filt, q)
+                    self.log.debug("MQTT subscribing to %s (qos=%d)", filt, q)
                     result, _ = client.subscribe(filt, qos=q)
                     if result != mqtt.MQTT_ERR_SUCCESS:
                         self.log.error(
@@ -269,7 +269,7 @@ class MQTTClient:
                 reason_code,
             )
         else:
-            self.log.info("MQTT cleanly disconnected.")
+            self.log.debug("MQTT cleanly disconnected")
         if self._user_on_disconnect:
             try:
                 self._user_on_disconnect(reason_code)

@@ -36,11 +36,11 @@ def main() -> None:
     # Start client and run until interrupted
     try:
         client.start()
-        log.info("Press Ctrl+C to exit.")
+        log.debug("Press Ctrl+C to exit")
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        log.info("Shutting down...")
+        log.debug("Shutting down")
     finally:
         client.stop()
 
