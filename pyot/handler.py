@@ -128,6 +128,7 @@ class PushToServerHandler(BaseHandler):
         try:
             subprocess.check_call(cmd)
             cls.logger.debug("PushToServerHandler: mkdir successful")
+            cls._create_data_directory = lambda *args, **kwargs: True
             return True
         except Exception as e:
             cls.logger.debug(
@@ -198,6 +199,7 @@ class PushToServerHandler(BaseHandler):
         try:
             subprocess.check_call(cmd)
             cls.logger.debug("PushToServerHandler: mkdir successful")
+            cls._create_log_directory = lambda *args, **kwargs: True
             return True
         except Exception as e:
             cls.logger.debug(

@@ -9,8 +9,8 @@ mkdir "%FOLDER%\logs" 2>nul
 
 "%FOLDER%\nssm.exe" install "%SERVICE%" "%FOLDER%\.venv\Scripts\python.exe" "%FOLDER%\pyot.py"
 "%FOLDER%\nssm.exe" set %SERVICE% AppDirectory "%FOLDER%"
-"%FOLDER%\nssm.exe" set %SERVICE% AppStdout "%FOLDER%\output\stdout.log"
-"%FOLDER%\nssm.exe" set %SERVICE% AppStderr "%FOLDER%\output\stderr.log"
+"%FOLDER%\nssm.exe" set %SERVICE% AppStdout "%FOLDER%\output\stdout.out"
+"%FOLDER%\nssm.exe" set %SERVICE% AppStderr "%FOLDER%\output\stderr.out"
 "%FOLDER%\nssm.exe" set %SERVICE% AppRotateFiles 1
 "%FOLDER%\nssm.exe" set %SERVICE% AppRotateBytes 10485760
 "%FOLDER%\nssm.exe" set %SERVICE% AppExit Default Restart
