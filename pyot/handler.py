@@ -3,6 +3,8 @@
 import logging
 from abc import ABC, abstractmethod
 
+from pyot.config import PullShopOrdersConfig, PushToServerConfig
+
 
 class BaseHandler(ABC):
     """Abstract handler interface.
@@ -51,22 +53,25 @@ class PushToServerHandler(BaseHandler):
        folder on remote server.
 
     Atributes:
-        process_logs (bool): Whether to process logs. If False, skips steps 2 and 3.
+        config (PushToServerConfig): Configuration for the handler.
     """
 
     """Flag to determine if logs should be processed."""
-    process_logs: bool = True
+    config: PushToServerConfig
 
     @classmethod
-    def set_process_logs(cls, process: bool) -> None:
-        """Set whether to process logs.
+    def set_config(cls, config: PushToServerConfig) -> None:
+        """Set config for the handler.
 
         Args:
-            process (bool): If True, process logs; if False, skip log processing steps.
+            config (PushToServerConfig): Configuration to set.
         """
-        cls.process_logs = process
-        if process:
+        cls.config = config
+        if config.centralize_logs:
             cls.logger.info("PushToServerHandler: including log processing steps")
+            cls.logger.info(
+                f"PushToServerHandler: log folder name: {config.log_folder_name}"
+            )
         else:
             cls.logger.info("PushToServerHandler: skipping log processing steps")
 
@@ -87,7 +92,7 @@ class PushToServerHandler(BaseHandler):
 
         # Call methods using short circuit evaluation
         steps = [cls._push_to_server]
-        if cls.process_logs:
+        if cls.config.centralize_logs:
             steps.extend([cls._create_log_directory, cls._copy_logs])
         if all(f() for f in steps):
             cls.logger.info("PushToServerHandler: all handlers successful")
@@ -182,7 +187,21 @@ class SyncShopOrderRecipesHandler(BaseHandler):
 
     Upon receiving message, uses WSL to execute rsync to copy shop order recipes
     from remote server to local directory. SSH key authentication must be set up.
+
+    Atributes:
+        config (PullShopOrdersConfig): Configuration for the handler.
     """
+
+    config: PullShopOrdersConfig
+
+    @classmethod
+    def set_config(cls, config: PullShopOrdersConfig) -> None:
+        """Set config for the handler.
+
+        Args:
+            config (PullShopOrdersConfig): Configuration to set.
+        """
+        cls.config = config
 
     @classmethod
     def handle(cls, topic: str, payload: bytes) -> None:

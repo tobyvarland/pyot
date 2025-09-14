@@ -4,14 +4,14 @@ import logging
 import os
 import socket
 import ssl
-import sys
 import threading
 import uuid
 from typing import Any, Callable, Optional, Union
 
 import paho.mqtt.client as mqtt
-from dotenv import load_dotenv
 from paho.mqtt.client import Client, MQTTMessage, topic_matches_sub
+
+from pyot.config import BrokerConfig
 
 MessageHandler = Callable[[str, bytes], None]
 ConnectHandler = Callable[[], None]
@@ -100,8 +100,6 @@ class MQTTClient:
         # Initialize state
         self._loop_running = False
         self._lock = threading.RLock()
-
-    # ---------- Public API ----------
 
     def subscribe(
         self,
@@ -384,40 +382,19 @@ class MQTTClient:
         return self
 
 
-def default_client() -> "MQTTClient":
+def default_client(config: BrokerConfig) -> "MQTTClient":
     """Create an MQTTClient using settings from environment variables or defaults.
 
-    Environment variables:
-        MQTT_HOST: MQTT broker hostname or IP (default "localhost").
-        MQTT_PORT: MQTT broker port (default 1883).
-        MQTT_USER: Optional username for broker authentication.
-        MQTT_PASS: Optional password for broker authentication.
-        MQTT_TLS_CA: Optional path to CA certificate file for TLS connection.
+    Args:
+        config: BrokerConfig instance with connection settings.
 
     Returns:
         MQTTClient: Configured MQTT client instance.
     """
-
-    # Load .env file if present
-    parent_dir = os.path.dirname(os.path.dirname(__file__))
-    env_path = os.path.join(parent_dir, ".env")
-    load_dotenv(dotenv_path=env_path)
-    MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
-    MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
-    MQTT_USER = os.getenv("MQTT_USER", None)
-    MQTT_PASS = os.getenv("MQTT_PASS", None)
-    tls_ca_name = os.getenv("MQTT_TLS_CA")
-    MQTT_TLS_CA = (
-        os.path.join(os.path.dirname(sys.argv[0]), "certs", tls_ca_name)
-        if tls_ca_name
-        else None
-    )
-
-    # Return MQTT client
     return MQTTClient(
-        host=MQTT_HOST,
-        port=MQTT_PORT,
-        username=MQTT_USER,
-        password=MQTT_PASS,
-        tls_ca=MQTT_TLS_CA,
+        host=config.host,
+        port=config.port,
+        username=config.username,
+        password=config.password,
+        tls_ca=config.tls_ca,
     )
