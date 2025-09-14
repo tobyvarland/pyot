@@ -66,7 +66,7 @@ def setup_logger(
     )
     file_handler.suffix = "%Y-%m-%d"
     file_handler.setFormatter(fmt)
-    file_handler.setLevel(level)
+    file_handler.setLevel(logging.INFO)
     logger.addHandler(file_handler)
 
     # Configure console handler for DEBUG level

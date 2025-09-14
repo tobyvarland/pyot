@@ -1,6 +1,7 @@
-"""Module defining MQTT message handlers."""
-
 import logging
+import shlex
+import socket
+import subprocess
 from abc import ABC, abstractmethod
 
 from pyot.config import PullShopOrdersConfig, PushToServerConfig
@@ -68,12 +69,12 @@ class PushToServerHandler(BaseHandler):
         """
         cls.config = config
         if config.centralize_logs:
-            cls.logger.info("PushToServerHandler: including log processing steps")
-            cls.logger.info(
+            cls.logger.debug("PushToServerHandler: including log processing steps")
+            cls.logger.debug(
                 f"PushToServerHandler: log folder name: {config.log_folder_name}"
             )
         else:
-            cls.logger.info("PushToServerHandler: skipping log processing steps")
+            cls.logger.debug("PushToServerHandler: skipping log processing steps")
 
     @classmethod
     def handle(cls, topic: str, payload: bytes) -> None:
@@ -88,16 +89,52 @@ class PushToServerHandler(BaseHandler):
         """
 
         # Log receipt of message
-        cls.logger.info("PushToServerHandler: message received on topic: %s", topic)
+        cls.logger.debug("PushToServerHandler: message received on topic: %s", topic)
 
         # Call methods using short circuit evaluation
-        steps = [cls._push_to_server]
+        steps = [cls._create_data_directory, cls._push_to_server]
         if cls.config.centralize_logs:
             steps.extend([cls._create_log_directory, cls._copy_logs])
         if all(f() for f in steps):
-            cls.logger.info("PushToServerHandler: all handlers successful")
+            cls.logger.debug("PushToServerHandler: all handlers successful")
         else:
             cls.logger.warning("PushToServerHandler: handler failed")
+
+    @classmethod
+    def _create_data_directory(cls) -> bool:
+        """Create data directory on remote server if it does not exist.
+
+        Executes mkdir via SSH on remote server. SSH key authentication must be set up.
+
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        cls.logger.info("PushToServerHandler: ensuring data directory exists on server")
+        cmd = ["wsl"] if cls.config.use_wsl else []
+        cmd.extend(
+            [
+                "/usr/bin/ssh",
+                "-o",
+                "StrictHostKeyChecking=accept-new",
+                cls.config.remote_server,
+                "/bin/mkdir",
+                "-p",
+                f"{cls.config.remote_path}{socket.gethostname()}/",
+            ]
+        )
+        cls.logger.debug(
+            "PushToServerHandler: starting remote mkdir: %s", shlex.join(cmd)
+        )
+        try:
+            subprocess.check_call(cmd)
+            cls.logger.debug("PushToServerHandler: mkdir successful")
+            return True
+        except Exception as e:
+            cls.logger.debug(
+                "PushToServerHandler: mkdir failed: %s",
+                e,
+            )
+            return False
 
     @classmethod
     def _push_to_server(cls) -> bool:
@@ -108,20 +145,28 @@ class PushToServerHandler(BaseHandler):
         Returns:
             bool: True if successful, False otherwise.
         """
-
+        cls.logger.info("PushToServerHandler: pushing local data to server")
+        cmd = ["wsl"] if cls.config.use_wsl else []
+        cmd.extend(
+            [
+                "rsync",
+                "-rt",
+                "--delete",
+                "-e",
+                "ssh -o StrictHostKeyChecking=accept-new",
+                cls.config.local_path,
+                f"{cls.config.remote_server}:{cls.config.remote_path}{socket.gethostname()}/",
+            ]
+        )
+        cls.logger.debug("PushToServerHandler: starting rsync: %s", shlex.join(cmd))
         try:
-
-            # Log action
-            cls.logger.info("PushToServerHandler: pushing PLCData to server")
-
-            # Return true on completion with no exceptions.
+            subprocess.check_call(cmd)
+            cls.logger.debug("PushToServerHandler: rsync successful")
             return True
-
         except Exception as e:
-
-            # Log error and return false
-            cls.logger.error(
-                "PushToServerHandler: error pushing PLCData to server: %s", e
+            cls.logger.debug(
+                "PushToServerHandler: rsync failed: %s",
+                e,
             )
             return False
 
@@ -134,22 +179,30 @@ class PushToServerHandler(BaseHandler):
         Returns:
             bool: True if successful, False otherwise.
         """
-
+        cls.logger.info("PushToServerHandler: ensuring logs directory exists on server")
+        cmd = ["wsl"] if cls.config.use_wsl else []
+        cmd.extend(
+            [
+                "/usr/bin/ssh",
+                "-o",
+                "StrictHostKeyChecking=accept-new",
+                cls.config.remote_server,
+                "/bin/mkdir",
+                "-p",
+                f"{cls.config.remote_log_path}{cls.config.log_folder_name}/",
+            ]
+        )
+        cls.logger.debug(
+            "PushToServerHandler: starting remote mkdir: %s", shlex.join(cmd)
+        )
         try:
-
-            # Log action
-            cls.logger.info(
-                "PushToServerHandler: ensuring log directory exists on server"
-            )
-
-            # Return true on completion with no exceptions.
+            subprocess.check_call(cmd)
+            cls.logger.debug("PushToServerHandler: mkdir successful")
             return True
-
         except Exception as e:
-
-            # Log error and return false
-            cls.logger.error(
-                "PushToServerHandler: error creating log directory on server: %s", e
+            cls.logger.debug(
+                "PushToServerHandler: mkdir failed: %s",
+                e,
             )
             return False
 
@@ -162,22 +215,32 @@ class PushToServerHandler(BaseHandler):
         Returns:
             bool: True if successful, False otherwise.
         """
-
+        cls.logger.info("PushToServerHandler: copying logs to user accessible folder")
+        cmd = ["wsl"] if cls.config.use_wsl else []
+        cmd.extend(
+            [
+                "/usr/bin/ssh",
+                "-o",
+                "StrictHostKeyChecking=accept-new",
+                cls.config.remote_server,
+                "/bin/rsync",
+                "-a",
+                "--delete",
+                f"{cls.config.remote_path}{socket.gethostname()}/Logs/",
+                f"{cls.config.remote_log_path}{cls.config.log_folder_name}/",
+            ]
+        )
+        cls.logger.debug(
+            "PushToServerHandler: starting remote rsync: %s", shlex.join(cmd)
+        )
         try:
-
-            # Log action
-            cls.logger.info(
-                "PushToServerHandler: copying logs to accessible folder on server"
-            )
-
-            # Return true on completion with no exceptions.
+            subprocess.check_call(cmd)
+            cls.logger.debug("PushToServerHandler: rsync successful")
             return True
-
         except Exception as e:
-
-            # Log error and return false
-            cls.logger.error(
-                "PushToServerHandler: error copying logs to accessible folder: %s", e
+            cls.logger.debug(
+                "PushToServerHandler: rsync failed: %s",
+                e,
             )
             return False
 
@@ -216,13 +279,13 @@ class SyncShopOrderRecipesHandler(BaseHandler):
         """
 
         # Log receipt of message
-        cls.logger.info(
+        cls.logger.debug(
             "SyncShopOrderRecipesHandler: message received on topic: %s", topic
         )
 
         # Call methods using short circuit evaluation
         if all(f() for f in (cls._pull_from_server,)):
-            cls.logger.info("SyncShopOrderRecipesHandler: all handlers successful")
+            cls.logger.debug("SyncShopOrderRecipesHandler: all handlers successful")
         else:
             cls.logger.warning("SyncShopOrderRecipesHandler: handler failed")
 
@@ -235,19 +298,31 @@ class SyncShopOrderRecipesHandler(BaseHandler):
         Returns:
             bool: True if successful, False otherwise.
         """
-
+        cls.logger.info("SyncShopOrderRecipesHandler: pulling recipes from server")
+        cmd = ["wsl"] if cls.config.use_wsl else []
+        cmd.extend(
+            [
+                "rsync",
+                "-rt",
+                "--checksum",
+                "--delete",
+                "--omit-dir-times",
+                "-e",
+                "ssh -o Compression=no -o StrictHostKeyChecking=accept-new",
+                f"{cls.config.remote_server}:{cls.config.remote_path}",
+                cls.config.local_path,
+            ]
+        )
+        cls.logger.debug(
+            "SyncShopOrderRecipesHandler: starting rsync: %s", shlex.join(cmd)
+        )
         try:
-
-            # Log action
-            cls.logger.info("SyncShopOrderRecipesHandler: pulling recipes from server")
-
-            # Return true on completion with no exceptions.
+            subprocess.check_call(cmd)
+            cls.logger.debug("SyncShopOrderRecipesHandler: rsync successful")
             return True
-
         except Exception as e:
-
-            # Log error and return false
-            cls.logger.error(
-                "SyncShopOrderRecipesHandler: error pulling recipes from server: %s", e
+            cls.logger.debug(
+                "SyncShopOrderRecipesHandler: rsync failed: %s",
+                e,
             )
             return False

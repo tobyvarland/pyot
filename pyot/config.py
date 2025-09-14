@@ -173,11 +173,19 @@ class PullShopOrdersConfig:
 
     Atributes:
         pull (bool): Whether to pull shop orders.
+        remote_server (str): Remote server SSH user and hostname.
+        remote_path (str): Remote path to pull shop orders from.
+        local_path (str): Local path to store pulled shop orders.
+        use_wsl (bool): Whether to use WSL for rsync command.
 
         TOPIC (ClassVar[str]): MQTT topic for shop order recipes.
     """
 
     pull: bool
+    remote_server: str
+    remote_path: str
+    local_path: str
+    use_wsl: bool
     TOPIC: ClassVar[str] = "as400/shop_order_recipes_synced"
 
 
@@ -188,12 +196,22 @@ class PushToServerConfig:
     Atributes:
         centralize_logs (bool): Whether to centralize logs.
         log_folder_name (str): Folder name for storing logs.
+        use_wsl (bool): Whether to use WSL for rsync command.
+        remote_server (str): Remote server SSH user and hostname.
+        remote_path (str): Remote path to push data to.
+        remote_log_path (str): Remote path to push logs to.
+        local_path (str): Local path to push data from.
 
         TOPIC (ClassVar[str]): MQTT topic for shop order recipes.
     """
 
     centralize_logs: bool
     log_folder_name: str
+    use_wsl: bool
+    remote_server: str
+    remote_path: str
+    remote_log_path: str
+    local_path: str
     TOPIC: ClassVar[str] = "plc/push_to_server"
 
 
@@ -237,9 +255,18 @@ class AppConfig:
         mqtt_ca = _get("MQTT_TLS_CA")
 
         pull_shop_orders = _to_bool(_get_required("PULL_SHOP_ORDERS"))
+        pull_shop_orders_server = _get_required("PULL_SHOP_ORDERS_REMOTE_SERVER")
+        pull_shop_orders_remote = _get_required("PULL_SHOP_ORDERS_REMOTE_PATH")
+        pull_shop_orders_local = _get_required("PULL_SHOP_ORDERS_LOCAL_PATH")
+        pull_shop_orders_wsl = _to_bool(_get_required("PULL_SHOP_ORDERS_USE_WSL"))
 
         centralize_logs = _to_bool(_get_required("PUSH_TO_SERVER_CENTRALIZE_LOGS"))
         logs_folder_name = _get("PUSH_TO_SERVER_LOG_FOLDER_NAME", socket.gethostname())
+        push_to_server_wsl = _to_bool(_get_required("PULL_SHOP_ORDERS_USE_WSL"))
+        push_to_server_server = _get_required("PUSH_TO_SERVER_REMOTE_SERVER")
+        push_to_server_remote = _get_required("PUSH_TO_SERVER_REMOTE_PATH")
+        push_to_server_remote_logs = _get_required("PUSH_TO_SERVER_REMOTE_LOG_PATH")
+        push_to_server_local = _get_required("PUSH_TO_SERVER_LOCAL_PATH")
 
         # Determine full CA path if given
         if mqtt_ca:
@@ -255,9 +282,21 @@ class AppConfig:
                 username=mqtt_username,
                 password=mqtt_password,
             ),
-            pull_shop_orders=PullShopOrdersConfig(pull=pull_shop_orders),
+            pull_shop_orders=PullShopOrdersConfig(
+                pull=pull_shop_orders,
+                remote_server=pull_shop_orders_server,
+                remote_path=pull_shop_orders_remote,
+                local_path=pull_shop_orders_local,
+                use_wsl=pull_shop_orders_wsl,
+            ),
             push_to_server=PushToServerConfig(
-                centralize_logs=centralize_logs, log_folder_name=logs_folder_name
+                centralize_logs=centralize_logs,
+                log_folder_name=logs_folder_name,
+                use_wsl=push_to_server_wsl,
+                remote_server=push_to_server_server,
+                remote_path=push_to_server_remote,
+                remote_log_path=push_to_server_remote_logs,
+                local_path=push_to_server_local,
             ),
         )
 
