@@ -238,6 +238,9 @@ class AppConfig:
         pull_shop_orders (PullShopOrdersConfig): Shop orders pulling configuration.
         push_to_server (PushToServerConfig): Push to server configuration.
         annualize_logs (AnnualizeLogsConfig): Annualize logs configuration.
+
+        CURRENT_VERSION (ClassVar[str]): Current application version.
+        HEARTBEAT_INTERVAL (ClassVar[int]): Heartbeat interval in seconds.
     """
 
     log_level: int
@@ -247,6 +250,7 @@ class AppConfig:
     annualize_logs: AnnualizeLogsConfig
 
     CURRENT_VERSION: ClassVar[str] = "0.0.1"
+    HEARTBEAT_INTERVAL: ClassVar[int] = 30
 
     @staticmethod
     def from_env() -> "AppConfig":

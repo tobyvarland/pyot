@@ -48,12 +48,12 @@ def main() -> None:
     try:
         client.start()
         log.debug("Press Ctrl+C to exit")
-        heartbeat_interval = 30
         last_heartbeat = 0
         last_version = None
         while True:
             now = time.time()
-            today = datetime.now().date()
+            current_dt = datetime.now()
+            today = current_dt.date()
             if today != last_version:
                 log.debug("Publishing version")
                 client.publish(
@@ -63,9 +63,9 @@ def main() -> None:
                     retain=True,
                 )
                 last_version = today
-            if now - last_heartbeat >= heartbeat_interval:
+            if now - last_heartbeat >= config.HEARTBEAT_INTERVAL:
                 log.debug("Publishing heartbeat")
-                payload = datetime.now().isoformat()
+                payload = current_dt.isoformat()
                 client.publish(
                     f"pyot/heartbeat/{socket.gethostname()}",
                     payload,
