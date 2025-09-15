@@ -232,12 +232,15 @@ class AnnualizeLogsConfig:
 class AppConfig:
     """Application configuration loaded from environment variables.
 
-    Atributes:
+    Attributes:
         log_level (int): Logging level.
         broker (BrokerConfig): MQTT Broker configuration.
         pull_shop_orders (PullShopOrdersConfig): Shop orders pulling configuration.
         push_to_server (PushToServerConfig): Push to server configuration.
         annualize_logs (AnnualizeLogsConfig): Annualize logs configuration.
+
+        CURRENT_VERSION (ClassVar[str]): Current application version.
+        HEARTBEAT_INTERVAL (ClassVar[int]): Heartbeat interval in seconds.
     """
 
     log_level: int
@@ -245,6 +248,9 @@ class AppConfig:
     pull_shop_orders: PullShopOrdersConfig
     push_to_server: PushToServerConfig
     annualize_logs: AnnualizeLogsConfig
+
+    CURRENT_VERSION: ClassVar[str] = "0.0.1"
+    HEARTBEAT_INTERVAL: ClassVar[int] = 30
 
     @staticmethod
     def from_env() -> "AppConfig":
