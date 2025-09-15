@@ -220,12 +220,12 @@ class AnnualizeLogsConfig:
     """Config for annualizing log files.
 
     Atributes:
+        logs_directory (str): Directory where logs are stored.
         TOPIC (ClassVar[str]): MQTT topic for triggering annualization.
-        LOGS_DIRECTORY (ClassVar[str]): Directory where logs are stored.
     """
 
+    logs_directory: str
     TOPIC: ClassVar[str] = "plc/annualize_logs"
-    LOGS_DIRECTORY: ClassVar[str] = "C:/PLCData/Logs/"
 
 
 @dataclass(frozen=True)
@@ -283,6 +283,8 @@ class AppConfig:
         push_to_server_remote_logs = _get_required("PUSH_TO_SERVER_REMOTE_LOG_PATH")
         push_to_server_local = _get_required("PUSH_TO_SERVER_LOCAL_PATH")
 
+        annualize_logs_directory = _get_required("LOG_ANNUALIZATION_DIRECTORY")
+
         # Determine full CA path if given
         if mqtt_ca:
             parent_dir = os.path.dirname(os.path.dirname(__file__))
@@ -313,7 +315,7 @@ class AppConfig:
                 remote_log_path=push_to_server_remote_logs,
                 local_path=push_to_server_local,
             ),
-            annualize_logs=AnnualizeLogsConfig(),
+            annualize_logs=AnnualizeLogsConfig(logs_directory=annualize_logs_directory),
         )
 
 

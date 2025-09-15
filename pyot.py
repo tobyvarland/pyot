@@ -1,7 +1,12 @@
 import time
 
 from pyot.config import get_settings
-from pyot.handler import BaseHandler, PushToServerHandler, SyncShopOrderRecipesHandler
+from pyot.handler import (
+    BaseHandler,
+    LogAnnualizationHandler,
+    PushToServerHandler,
+    SyncShopOrderRecipesHandler,
+)
 from pyot.logging import setup_logger
 from pyot.mqtt import default_client
 
@@ -25,9 +30,13 @@ def main() -> None:
     # Configure handlers with necessary settings
     SyncShopOrderRecipesHandler.set_config(config.pull_shop_orders)
     PushToServerHandler.set_config(config.push_to_server)
+    LogAnnualizationHandler.set_config(config.annualize_logs)
 
     # Subscribe to topics with appropriate handlers
     client.subscribe(config.push_to_server.TOPIC, handler=PushToServerHandler.handle)
+    client.subscribe(
+        config.annualize_logs.TOPIC, handler=LogAnnualizationHandler.handle
+    )
     if config.pull_shop_orders.pull:
         client.subscribe(
             config.pull_shop_orders.TOPIC, handler=SyncShopOrderRecipesHandler.handle

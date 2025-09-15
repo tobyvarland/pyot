@@ -372,7 +372,7 @@ class LogAnnualizationHandler(BaseHandler):
         """
         cls.logger.info("LogAnnualizationHandler: copying logs to annualized folder")
         try:
-            directory = Path(cls.config.LOGS_DIRECTORY)
+            directory = Path(cls.config.logs_directory)
             files = list(directory.glob("*.csv"))
             if not files:
                 cls.logger.debug("LogAnnualizationHandler: no .csv files to annualize")
