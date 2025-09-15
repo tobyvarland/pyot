@@ -216,6 +216,19 @@ class PushToServerConfig:
 
 
 @dataclass(frozen=True)
+class AnnualizeLogsConfig:
+    """Config for annualizing log files.
+
+    Atributes:
+        logs_directory (str): Directory where logs are stored.
+        TOPIC (ClassVar[str]): MQTT topic for triggering annualization.
+    """
+
+    logs_directory: str
+    TOPIC: ClassVar[str] = "plc/annualize_logs"
+
+
+@dataclass(frozen=True)
 class AppConfig:
     """Application configuration loaded from environment variables.
 
@@ -224,12 +237,14 @@ class AppConfig:
         broker (BrokerConfig): MQTT Broker configuration.
         pull_shop_orders (PullShopOrdersConfig): Shop orders pulling configuration.
         push_to_server (PushToServerConfig): Push to server configuration.
+        annualize_logs (AnnualizeLogsConfig): Annualize logs configuration.
     """
 
     log_level: int
     broker: BrokerConfig
     pull_shop_orders: PullShopOrdersConfig
     push_to_server: PushToServerConfig
+    annualize_logs: AnnualizeLogsConfig
 
     @staticmethod
     def from_env() -> "AppConfig":
@@ -268,6 +283,8 @@ class AppConfig:
         push_to_server_remote_logs = _get_required("PUSH_TO_SERVER_REMOTE_LOG_PATH")
         push_to_server_local = _get_required("PUSH_TO_SERVER_LOCAL_PATH")
 
+        annualize_logs_directory = _get_required("LOG_ANNUALIZATION_DIRECTORY")
+
         # Determine full CA path if given
         if mqtt_ca:
             parent_dir = os.path.dirname(os.path.dirname(__file__))
@@ -298,6 +315,7 @@ class AppConfig:
                 remote_log_path=push_to_server_remote_logs,
                 local_path=push_to_server_local,
             ),
+            annualize_logs=AnnualizeLogsConfig(logs_directory=annualize_logs_directory),
         )
 
 

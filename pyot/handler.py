@@ -1,10 +1,14 @@
 import logging
 import shlex
+import shutil
 import socket
 import subprocess
 from abc import ABC, abstractmethod
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
 
-from pyot.config import PullShopOrdersConfig, PushToServerConfig
+from pyot.config import AnnualizeLogsConfig, PullShopOrdersConfig, PushToServerConfig
 
 
 class BaseHandler(ABC):
@@ -130,11 +134,8 @@ class PushToServerHandler(BaseHandler):
             cls.logger.debug("PushToServerHandler: mkdir successful")
             cls._create_data_directory = lambda *args, **kwargs: True
             return True
-        except Exception as e:
-            cls.logger.debug(
-                "PushToServerHandler: mkdir failed: %s",
-                e,
-            )
+        except Exception:
+            cls.logger.exception("PushToServerHandler: mkdir failed")
             return False
 
     @classmethod
@@ -164,11 +165,8 @@ class PushToServerHandler(BaseHandler):
             subprocess.check_call(cmd)
             cls.logger.debug("PushToServerHandler: rsync successful")
             return True
-        except Exception as e:
-            cls.logger.debug(
-                "PushToServerHandler: rsync failed: %s",
-                e,
-            )
+        except Exception:
+            cls.logger.exception("PushToServerHandler: rsync failed")
             return False
 
     @classmethod
@@ -201,11 +199,8 @@ class PushToServerHandler(BaseHandler):
             cls.logger.debug("PushToServerHandler: mkdir successful")
             cls._create_log_directory = lambda *args, **kwargs: True
             return True
-        except Exception as e:
-            cls.logger.debug(
-                "PushToServerHandler: mkdir failed: %s",
-                e,
-            )
+        except Exception:
+            cls.logger.exception("PushToServerHandler: mkdir failed")
             return False
 
     @classmethod
@@ -239,11 +234,8 @@ class PushToServerHandler(BaseHandler):
             subprocess.check_call(cmd)
             cls.logger.debug("PushToServerHandler: rsync successful")
             return True
-        except Exception as e:
-            cls.logger.debug(
-                "PushToServerHandler: rsync failed: %s",
-                e,
-            )
+        except Exception:
+            cls.logger.exception("PushToServerHandler: rsync failed")
             return False
 
 
@@ -322,9 +314,84 @@ class SyncShopOrderRecipesHandler(BaseHandler):
             subprocess.check_call(cmd)
             cls.logger.debug("SyncShopOrderRecipesHandler: rsync successful")
             return True
-        except Exception as e:
-            cls.logger.debug(
-                "SyncShopOrderRecipesHandler: rsync failed: %s",
-                e,
+        except Exception:
+            cls.logger.exception("SyncShopOrderRecipesHandler: rsync failed")
+            return False
+
+
+class LogAnnualizationHandler(BaseHandler):
+    """Handler for 'plc/annualize_logs' topic.
+
+    Copies all .csv log files from the current log directory to an annualized
+    directory structure based on the year.
+
+    Atributes:
+        config (AnnualizeLogsConfig): Configuration for the handler.
+    """
+
+    config: AnnualizeLogsConfig
+
+    @classmethod
+    def set_config(cls, config: AnnualizeLogsConfig) -> None:
+        """Set config for the handler.
+
+        Args:
+            config (AnnualizeLogsConfig): Configuration to set.
+        """
+        cls.config = config
+
+    @classmethod
+    def handle(cls, topic: str, payload: bytes) -> None:
+        """Base message handler.
+
+        Receives message and uses short cirtuit evaluation to call additional methods.
+        Payload is ignored.
+
+        Args:
+            topic (str): The MQTT topic of the message.
+            payload (bytes): The payload of the message.
+        """
+
+        # Log receipt of message
+        cls.logger.debug(
+            "LogAnnualizationHandler: message received on topic: %s", topic
+        )
+
+        # Call methods using short circuit evaluation
+        if all(f() for f in (cls._annualize_logs,)):
+            cls.logger.debug("LogAnnualizationHandler: all handlers successful")
+        else:
+            cls.logger.warning("LogAnnualizationHandler: handler failed")
+
+    @classmethod
+    def _annualize_logs(cls) -> bool:
+        """Copies log files to annualized directory structure.
+
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        cls.logger.info("LogAnnualizationHandler: copying logs to annualized folder")
+        try:
+            directory = Path(cls.config.logs_directory)
+            files = list(directory.glob("*.csv"))
+            if not files:
+                cls.logger.debug("LogAnnualizationHandler: no .csv files to annualize")
+                return True
+            tz = ZoneInfo("America/New_York")
+            today = datetime.now(tz).date()
+            target_year = (
+                today.year - 1 if (today.month, today.day) == (1, 1) else today.year
             )
+            target_directory = directory / str(target_year)
+            target_directory.mkdir(exist_ok=True)
+            for file in files:
+                shutil.move(file, target_directory / file.name)
+            cls.logger.debug(
+                "LogAnnualizationHandler: moved %d .csv files to %s",
+                len(files),
+                target_directory,
+            )
+            return True
+        except Exception:
+            cls.logger.exception("LogAnnualizationHandler: copying log files failed")
             return False
