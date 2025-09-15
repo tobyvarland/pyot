@@ -12,14 +12,15 @@ if exist "%FOLDER%\requirements.txt" (
   "%FOLDER%\.venv\Scripts\pip.exe" install -r "%FOLDER%\requirements.txt" || (echo Pip install failed.& exit /b 1)
 )
 
+for %%D in ("%FOLDER%\certs" "%FOLDER%\output" "%FOLDER%\logs" "C:\PLCData" "C:\PLCData\Charts" "C:\PLCData\Logs" "C:\PLCData\Recipes" "C:\PLCData\EventLog" "C:\PLCData\SHOPORDER") do mkdir "%%~D" 2>nul
+
 if not exist "%FOLDER%\.env" (
     copy "%FOLDER%\.env.example" "%FOLDER%\.env" >nul
     echo Created default .env file. Please edit it before continuing.
     echo Ensure SSH key authentication is set up for any remote servers.
+    echo Also make sure to install any certs in the certs folder.
     pause
 )
-
-for %%D in ("%FOLDER%\output" "%FOLDER%\logs" "C:\PLCData" "C:\PLCData\Charts" "C:\PLCData\Logs" "C:\PLCData\Recipes" "C:\PLCData\EventLog" "C:\PLCData\SHOPORDER") do mkdir "%%~D" 2>nul
 
 "%FOLDER%\nssm.exe" install "%SERVICE%" "%FOLDER%\.venv\Scripts\python.exe" "%FOLDER%\pyot.py"
 "%FOLDER%\nssm.exe" set "%SERVICE%" AppDirectory "%FOLDER%"
