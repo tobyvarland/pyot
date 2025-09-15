@@ -5,7 +5,7 @@ set SERVICE=PyOT
 for %%i in ("%~dp0..") do set "FOLDER=%%~fi"
 
 if not exist "%FOLDER%\.venv\Scripts\python.exe" (
-    python -m venv "%FOLDER%\.venv"
+    "C:\Users\plant\AppData\Local\Programs\Python\Python313\python.exe" -m venv "%FOLDER%\.venv"
 )
 if exist "%FOLDER%\requirements.txt" (
   "%FOLDER%\.venv\Scripts\pip.exe" install --upgrade pip
