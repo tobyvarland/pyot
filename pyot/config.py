@@ -232,7 +232,7 @@ class AnnualizeLogsConfig:
 class AppConfig:
     """Application configuration loaded from environment variables.
 
-    Atributes:
+    Attributes:
         log_level (int): Logging level.
         broker (BrokerConfig): MQTT Broker configuration.
         pull_shop_orders (PullShopOrdersConfig): Shop orders pulling configuration.
