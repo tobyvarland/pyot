@@ -246,6 +246,8 @@ class AppConfig:
     push_to_server: PushToServerConfig
     annualize_logs: AnnualizeLogsConfig
 
+    CURRENT_VERSION: ClassVar[str] = "0.0.1"
+
     @staticmethod
     def from_env() -> "AppConfig":
         """Load configuration from environment variables.

@@ -1,4 +1,6 @@
+import socket
 import time
+from datetime import datetime
 
 from pyot.config import get_settings
 from pyot.handler import (
@@ -46,7 +48,31 @@ def main() -> None:
     try:
         client.start()
         log.debug("Press Ctrl+C to exit")
+        heartbeat_interval = 30
+        last_heartbeat = 0
+        last_version = None
         while True:
+            now = time.time()
+            today = datetime.now().date()
+            if today != last_version:
+                log.debug("Publishing version")
+                client.publish(
+                    f"pyot/version/{socket.gethostname()}",
+                    config.CURRENT_VERSION,
+                    qos=1,
+                    retain=True,
+                )
+                last_version = today
+            if now - last_heartbeat >= heartbeat_interval:
+                log.debug("Publishing heartbeat")
+                payload = datetime.now().isoformat()
+                client.publish(
+                    f"pyot/heartbeat/{socket.gethostname()}",
+                    payload,
+                    qos=1,
+                    retain=True,
+                )
+                last_heartbeat = now
             time.sleep(1)
     except KeyboardInterrupt:
         log.debug("Shutting down")
