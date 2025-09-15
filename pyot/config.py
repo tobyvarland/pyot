@@ -216,6 +216,19 @@ class PushToServerConfig:
 
 
 @dataclass(frozen=True)
+class AnnualizeLogsConfig:
+    """Config for annualizing log files.
+
+    Atributes:
+        TOPIC (ClassVar[str]): MQTT topic for triggering annualization.
+        LOGS_DIRECTORY (ClassVar[str]): Directory where logs are stored.
+    """
+
+    TOPIC: ClassVar[str] = "plc/annualize_logs"
+    LOGS_DIRECTORY: ClassVar[str] = "C:/PLCData/Logs/"
+
+
+@dataclass(frozen=True)
 class AppConfig:
     """Application configuration loaded from environment variables.
 
@@ -224,12 +237,14 @@ class AppConfig:
         broker (BrokerConfig): MQTT Broker configuration.
         pull_shop_orders (PullShopOrdersConfig): Shop orders pulling configuration.
         push_to_server (PushToServerConfig): Push to server configuration.
+        annualize_logs (AnnualizeLogsConfig): Annualize logs configuration.
     """
 
     log_level: int
     broker: BrokerConfig
     pull_shop_orders: PullShopOrdersConfig
     push_to_server: PushToServerConfig
+    annualize_logs: AnnualizeLogsConfig
 
     @staticmethod
     def from_env() -> "AppConfig":
@@ -298,6 +313,7 @@ class AppConfig:
                 remote_log_path=push_to_server_remote_logs,
                 local_path=push_to_server_local,
             ),
+            annualize_logs=AnnualizeLogsConfig(),
         )
 
 
