@@ -253,7 +253,7 @@ class AppConfig:
     push_to_server: PushToServerConfig
     annualize_logs: AnnualizeLogsConfig
 
-    CURRENT_VERSION: ClassVar[str] = "0.0.2"
+    CURRENT_VERSION: ClassVar[str] = "0.0.3"
     HEARTBEAT_INTERVAL: ClassVar[int] = 30
     HEARTBEAT_QOS: ClassVar[int] = 1
     HEARTBEAT_TOPIC: ClassVar[str] = "pyot/heartbeat"
