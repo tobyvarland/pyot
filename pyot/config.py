@@ -241,6 +241,10 @@ class AppConfig:
 
         CURRENT_VERSION (ClassVar[str]): Current application version.
         HEARTBEAT_INTERVAL (ClassVar[int]): Heartbeat interval in seconds.
+        HEARTBEAT_QOS (ClassVar[int]): MQTT QoS level for heartbeat messages.
+        HEARTBEAT_TOPIC (ClassVar[str]): MQTT topic for heartbeat messages.
+        HEARTBEAT_RETAIN (ClassVar[bool]): Whether heartbeat messages are retained.
+        SLEEP_INTERVAL (ClassVar[int]): Main loop sleep interval in seconds.
     """
 
     log_level: int
@@ -251,6 +255,10 @@ class AppConfig:
 
     CURRENT_VERSION: ClassVar[str] = "0.0.2"
     HEARTBEAT_INTERVAL: ClassVar[int] = 30
+    HEARTBEAT_QOS: ClassVar[int] = 1
+    HEARTBEAT_TOPIC: ClassVar[str] = "pyot/heartbeat"
+    HEARTBEAT_RETAIN: ClassVar[bool] = True
+    SLEEP_INTERVAL: ClassVar[int] = 1
 
     @staticmethod
     def from_env() -> "AppConfig":

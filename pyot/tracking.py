@@ -76,5 +76,10 @@ class Tracker:
             )
 
             # Publish heartbeat payload.
-            self.client.publish(f"pyot/heartbeat/{self.hostname}", payload)
+            self.client.publish(
+                f"{self.config.HEARTBEAT_TOPIC}/{self.hostname}",
+                payload,
+                qos=self.config.HEARTBEAT_QOS,
+                retain=self.config.HEARTBEAT_RETAIN,
+            )
             self.log.debug(f"Published heartbeat: {payload}")

@@ -52,7 +52,7 @@ def main() -> None:
         log.debug("Press Ctrl+C to exit")
         while True:
             tracker.track()
-            time.sleep(1)
+            time.sleep(config.SLEEP_INTERVAL)
     except KeyboardInterrupt:
         log.debug("Shutting down")
     finally:
