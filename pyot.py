@@ -58,6 +58,8 @@ def main() -> None:
         heartbeat_count = 0
         process_start = time.time()
         hostname = socket.gethostname()
+        pid = os.getpid()
+        process = psutil.Process(pid)
         while True:
             now = time.time()
             current_dt = datetime.now()
@@ -83,8 +85,7 @@ def main() -> None:
             if now - last_heartbeat >= config.HEARTBEAT_INTERVAL:
                 log.debug("Publishing heartbeat")
                 uptime = int(now - process_start)
-                pid = os.getpid()
-                memory = psutil.Process(pid).memory_info().rss
+                memory = process.memory_info().rss
                 heartbeat_count += 1
                 payload = json.dumps(
                     {
