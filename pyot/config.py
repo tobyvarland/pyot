@@ -152,7 +152,7 @@ def _to_ip(value: str):
 class BrokerConfig:
     """MQTT Broker configuration.
 
-    Atributes:
+    Attributes:
         host (str): Broker hostname or IP address.
         port (int): Broker port number.
         tls_ca (Optional[str]): Path to TLS CA certificate file.
@@ -171,7 +171,7 @@ class BrokerConfig:
 class PullShopOrdersConfig:
     """Config for pulling shop orders from System i.
 
-    Atributes:
+    Attributes:
         pull (bool): Whether to pull shop orders.
         remote_server (str): Remote server SSH user and hostname.
         remote_path (str): Remote path to pull shop orders from.
@@ -193,7 +193,7 @@ class PullShopOrdersConfig:
 class PushToServerConfig:
     """Config for pushing local data to central server.
 
-    Atributes:
+    Attributes:
         centralize_logs (bool): Whether to centralize logs.
         log_folder_name (str): Folder name for storing logs.
         use_wsl (bool): Whether to use WSL for rsync command.
@@ -219,7 +219,7 @@ class PushToServerConfig:
 class AuthRecipeWriterConfig:
     """Config for writing auth recipes to a file.
 
-    Atributes:
+    Attributes:
         create (bool): Whether to create auth recipes.
         controllers (List[str]): List of controller names.
         folder (str): Folder path to write the auth recipe file.
@@ -245,7 +245,7 @@ class AuthRecipeWriterConfig:
 class AnnualizeLogsConfig:
     """Config for annualizing log files.
 
-    Atributes:
+    Attributes:
         logs_directory (str): Directory where logs are stored.
         TOPIC (ClassVar[str]): MQTT topic for triggering annualization.
     """

@@ -66,7 +66,7 @@ class PushToServerHandler(BaseHandler):
     3. Executes rsync command via SSH to copy logs from backup folder to user accessible
        folder on remote server.
 
-    Atributes:
+    Attributes:
         config (PushToServerConfig): Configuration for the handler.
     """
 
@@ -93,7 +93,7 @@ class PushToServerHandler(BaseHandler):
     def handle(cls, topic: str, payload: bytes) -> None:
         """Base message handler.
 
-        Receives message and uses short cirtuit evaluation to call additional methods.
+        Receives message and uses short circuit evaluation to call additional methods.
         Payload is ignored.
 
         Args:
@@ -254,7 +254,7 @@ class SyncShopOrderRecipesHandler(BaseHandler):
     Upon receiving message, uses WSL to execute rsync to copy shop order recipes
     from remote server to local directory. SSH key authentication must be set up.
 
-    Atributes:
+    Attributes:
         config (PullShopOrdersConfig): Configuration for the handler.
     """
 
@@ -273,7 +273,7 @@ class SyncShopOrderRecipesHandler(BaseHandler):
     def handle(cls, topic: str, payload: bytes) -> None:
         """Base message handler.
 
-        Receives message and uses short cirtuit evaluation to call additional methods.
+        Receives message and uses short circuit evaluation to call additional methods.
         Payload is ignored.
 
         Args:
@@ -334,7 +334,7 @@ class LogAnnualizationHandler(BaseHandler):
     Copies all .csv log files from the current log directory to an annualized
     directory structure based on the year.
 
-    Atributes:
+    Attributes:
         config (AnnualizeLogsConfig): Configuration for the handler.
     """
 
@@ -353,7 +353,7 @@ class LogAnnualizationHandler(BaseHandler):
     def handle(cls, topic: str, payload: bytes) -> None:
         """Base message handler.
 
-        Receives message and uses short cirtuit evaluation to call additional methods.
+        Receives message and uses short circuit evaluation to call additional methods.
         Payload is ignored.
 
         Args:
@@ -411,7 +411,7 @@ class AuthRecipeHandler(BaseHandler):
 
     Writes auth recipes to the specified directory.
 
-    Atributes:
+    Attributes:
         config (AuthRecipeWriterConfig): Configuration for the handler.
     """
 
@@ -435,7 +435,7 @@ class AuthRecipeHandler(BaseHandler):
     def handle(cls, topic: str, payload: bytes) -> None:
         """Base message handler.
 
-        Receives message and uses short cirtuit evaluation to call additional methods.
+        Receives message and uses short circuit evaluation to call additional methods.
         Payload is ignored.
 
         Args:
