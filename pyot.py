@@ -2,6 +2,7 @@ import time
 
 from pyot.config import get_settings
 from pyot.handler import (
+    AuthRecipeHandler,
     BaseHandler,
     LogAnnualizationHandler,
     PushToServerHandler,
@@ -35,6 +36,7 @@ def main() -> None:
     SyncShopOrderRecipesHandler.set_config(config.pull_shop_orders)
     PushToServerHandler.set_config(config.push_to_server)
     LogAnnualizationHandler.set_config(config.annualize_logs)
+    AuthRecipeHandler.set_config(config.auth_recipe_writer)
 
     # Subscribe to topics with appropriate handlers
     client.subscribe(config.push_to_server.TOPIC, handler=PushToServerHandler.handle)
@@ -44,6 +46,10 @@ def main() -> None:
     if config.pull_shop_orders.pull:
         client.subscribe(
             config.pull_shop_orders.TOPIC, handler=SyncShopOrderRecipesHandler.handle
+        )
+    if config.auth_recipe_writer.create:
+        client.subscribe(
+            config.auth_recipe_writer.TOPIC, handler=AuthRecipeHandler.handle
         )
 
     # Start client and run until interrupted

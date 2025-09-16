@@ -152,7 +152,7 @@ def _to_ip(value: str):
 class BrokerConfig:
     """MQTT Broker configuration.
 
-    Atributes:
+    Attributes:
         host (str): Broker hostname or IP address.
         port (int): Broker port number.
         tls_ca (Optional[str]): Path to TLS CA certificate file.
@@ -171,7 +171,7 @@ class BrokerConfig:
 class PullShopOrdersConfig:
     """Config for pulling shop orders from System i.
 
-    Atributes:
+    Attributes:
         pull (bool): Whether to pull shop orders.
         remote_server (str): Remote server SSH user and hostname.
         remote_path (str): Remote path to pull shop orders from.
@@ -193,7 +193,7 @@ class PullShopOrdersConfig:
 class PushToServerConfig:
     """Config for pushing local data to central server.
 
-    Atributes:
+    Attributes:
         centralize_logs (bool): Whether to centralize logs.
         log_folder_name (str): Folder name for storing logs.
         use_wsl (bool): Whether to use WSL for rsync command.
@@ -216,10 +216,36 @@ class PushToServerConfig:
 
 
 @dataclass(frozen=True)
+class AuthRecipeWriterConfig:
+    """Config for writing auth recipes to a file.
+
+    Attributes:
+        create (bool): Whether to create auth recipes.
+        controllers (List[str]): List of controller names.
+        folder (str): Folder path to write the auth recipe file.
+        filename (str): Filename for the auth recipe file.
+
+        TOPIC (ClassVar[str]): MQTT topic for triggering auth recipe writes.
+        PIN_TABLE_NAME (ClassVar[str]): Table name for auth pins.
+        NAME_TABLE_NAME (ClassVar[str]): Table name for employee names.
+        API_ENDPOINT (ClassVar[str]): API endpoint to fetch employee data.
+    """
+
+    create: bool
+    controllers: List[str]
+    folder: str
+    filename: str
+    TOPIC: ClassVar[str] = "plc/refresh_auth"
+    PIN_TABLE_NAME: ClassVar[str] = "st_AuthPin"
+    NAME_TABLE_NAME: ClassVar[str] = "st_AuthEmployeeName"
+    API_ENDPOINT: ClassVar[str] = "https://varland.app/accounts/api/get-employees/"
+
+
+@dataclass(frozen=True)
 class AnnualizeLogsConfig:
     """Config for annualizing log files.
 
-    Atributes:
+    Attributes:
         logs_directory (str): Directory where logs are stored.
         TOPIC (ClassVar[str]): MQTT topic for triggering annualization.
     """
@@ -238,6 +264,7 @@ class AppConfig:
         pull_shop_orders (PullShopOrdersConfig): Shop orders pulling configuration.
         push_to_server (PushToServerConfig): Push to server configuration.
         annualize_logs (AnnualizeLogsConfig): Annualize logs configuration.
+        auth_recipe_writer (AuthRecipeWriterConfig): Auth recipe writer configuration.
 
         CURRENT_VERSION (ClassVar[str]): Current application version.
         HEARTBEAT_INTERVAL (ClassVar[int]): Heartbeat interval in seconds.
@@ -252,8 +279,9 @@ class AppConfig:
     pull_shop_orders: PullShopOrdersConfig
     push_to_server: PushToServerConfig
     annualize_logs: AnnualizeLogsConfig
+    auth_recipe_writer: AuthRecipeWriterConfig
 
-    CURRENT_VERSION: ClassVar[str] = "0.0.3"
+    CURRENT_VERSION: ClassVar[str] = "0.0.4"
     HEARTBEAT_INTERVAL: ClassVar[int] = 30
     HEARTBEAT_QOS: ClassVar[int] = 1
     HEARTBEAT_TOPIC: ClassVar[str] = "pyot/heartbeat"
@@ -299,6 +327,13 @@ class AppConfig:
 
         annualize_logs_directory = _get_required("LOG_ANNUALIZATION_DIRECTORY")
 
+        create_auth_recipes = _to_bool(_get_required("CREATE_AUTH_RECIPES"))
+        create_auth_recipes_controllers = _to_list(
+            _get_required("CREATE_AUTH_RECIPES_CONTROLLERS")
+        )
+        create_auth_recipes_folder = _get_required("CREATE_AUTH_RECIPES_FOLDER")
+        create_auth_recipes_filename = _get_required("CREATE_AUTH_RECIPES_FILENAME")
+
         # Determine full CA path if given
         if mqtt_ca:
             parent_dir = os.path.dirname(os.path.dirname(__file__))
@@ -330,6 +365,12 @@ class AppConfig:
                 local_path=push_to_server_local,
             ),
             annualize_logs=AnnualizeLogsConfig(logs_directory=annualize_logs_directory),
+            auth_recipe_writer=AuthRecipeWriterConfig(
+                create=create_auth_recipes,
+                controllers=create_auth_recipes_controllers,
+                folder=create_auth_recipes_folder,
+                filename=create_auth_recipes_filename,
+            ),
         )
 
 
