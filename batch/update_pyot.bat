@@ -11,7 +11,7 @@ if exist "%FOLDER%\requirements.txt" (
   "%FOLDER%\.venv\Scripts\pip.exe" install -r "%FOLDER%\requirements.txt" || (echo Pip install failed.& exit /b 1)
 )
 
-echo Must manually restart the service to apply updates.
+echo Must manually restart the service to apply updates. Make any required config changes first.
 pause
 
 endlocal
