@@ -1,6 +1,10 @@
+import json
+import os
 import socket
 import time
 from datetime import datetime
+
+import psutil
 
 from pyot.config import get_settings
 from pyot.handler import (
@@ -50,24 +54,51 @@ def main() -> None:
         log.debug("Press Ctrl+C to exit")
         last_heartbeat = 0
         last_version = None
+        version_count = 0
+        heartbeat_count = 0
+        process_start = time.time()
+        hostname = socket.gethostname()
+        pid = os.getpid()
+        process = psutil.Process(pid)
         while True:
             now = time.time()
             current_dt = datetime.now()
             today = current_dt.date()
             if today != last_version:
                 log.debug("Publishing version")
+                version_count += 1
+                payload = json.dumps(
+                    {
+                        "hostname": hostname,
+                        "timestamp": current_dt.isoformat(),
+                        "version": config.CURRENT_VERSION,
+                        "version_count": version_count,
+                    }
+                )
                 client.publish(
-                    f"pyot/version/{socket.gethostname()}",
-                    config.CURRENT_VERSION,
+                    f"pyot/version/{hostname}",
+                    payload,
                     qos=1,
                     retain=True,
                 )
                 last_version = today
             if now - last_heartbeat >= config.HEARTBEAT_INTERVAL:
                 log.debug("Publishing heartbeat")
-                payload = current_dt.isoformat()
+                uptime = int(now - process_start)
+                memory = process.memory_info().rss
+                heartbeat_count += 1
+                payload = json.dumps(
+                    {
+                        "hostname": hostname,
+                        "timestamp": current_dt.isoformat(),
+                        "heartbeat_count": heartbeat_count,
+                        "uptime": uptime,
+                        "memory": memory,
+                        "pid": pid,
+                    }
+                )
                 client.publish(
-                    f"pyot/heartbeat/{socket.gethostname()}",
+                    f"pyot/heartbeat/{hostname}",
                     payload,
                     qos=1,
                     retain=True,
