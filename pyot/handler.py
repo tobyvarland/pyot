@@ -1,4 +1,5 @@
 import logging
+import os
 import shlex
 import shutil
 import socket
@@ -8,7 +9,15 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from pyot.config import AnnualizeLogsConfig, PullShopOrdersConfig, PushToServerConfig
+import requests
+from pydantic import BaseModel, Field, ValidationError
+
+from pyot.config import (
+    AnnualizeLogsConfig,
+    AuthRecipeWriterConfig,
+    PullShopOrdersConfig,
+    PushToServerConfig,
+)
 
 
 class BaseHandler(ABC):
@@ -395,3 +404,124 @@ class LogAnnualizationHandler(BaseHandler):
         except Exception:
             cls.logger.exception("LogAnnualizationHandler: copying log files failed")
             return False
+
+
+class AuthRecipeHandler(BaseHandler):
+    """Handler for 'plc/refresh_auth' topic.
+
+    Writes auth recipes to the specified directory.
+
+    Atributes:
+        config (AuthRecipeWriterConfig): Configuration for the handler.
+    """
+
+    config: AuthRecipeWriterConfig
+
+    class Employee(BaseModel):
+        employee_number: int = Field(gt=1, lt=1000)
+        employee_name: str
+        user_pin: str
+
+    @classmethod
+    def set_config(cls, config: AuthRecipeWriterConfig) -> None:
+        """Set config for the handler.
+
+        Args:
+            config (AuthRecipeWriterConfig): Configuration to set.
+        """
+        cls.config = config
+
+    @classmethod
+    def handle(cls, topic: str, payload: bytes) -> None:
+        """Base message handler.
+
+        Receives message and uses short cirtuit evaluation to call additional methods.
+        Payload is ignored.
+
+        Args:
+            topic (str): The MQTT topic of the message.
+            payload (bytes): The payload of the message.
+        """
+
+        # Log receipt of message
+        cls.logger.debug("AuthRecipeHandler: message received on topic: %s", topic)
+
+        # Call methods using short circuit evaluation
+        if all(f() for f in (cls._create_local_folder, cls._write_recipe_file)):
+            cls.logger.debug("AuthRecipeHandler: all handlers successful")
+        else:
+            cls.logger.warning("AuthRecipeHandler: handler failed")
+
+    @classmethod
+    def _create_local_folder(cls) -> bool:
+        """Ensures local folder for auth recipes exists.
+
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        cls.logger.info("AuthRecipeHandler: ensuring local folder exists")
+        try:
+            os.makedirs(cls.config.folder, exist_ok=True)
+            cls.logger.debug("AuthRecipeHandler: created/verified local directory")
+            cls._create_local_folder = lambda *args, **kwargs: True
+            return True
+        except Exception:
+            cls.logger.exception(
+                "AuthRecipeHandler: ensuring local directory existence failed"
+            )
+            return False
+
+    @classmethod
+    def _write_recipe_file(cls) -> bool:
+        """Writes auth recipe file.
+
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        cls.logger.info("AuthRecipeHandler: writing recipe file")
+        try:
+            employees = cls._fetch_employees()
+            path = os.path.join(cls.config.folder, cls.config.filename)
+            with open(path, "w") as f:
+                for controller in cls.config.controllers:
+                    f.write(f"{controller}:String Table.{cls.config.PIN_TABLE_NAME}\n")
+                    for emp in employees:
+                        f.write(f"{emp.employee_number}:{emp.user_pin}\n")
+                    f.write("\n")
+                    f.write(f"{controller}:String Table.{cls.config.NAME_TABLE_NAME}\n")
+                    for emp in employees:
+                        f.write(f"{emp.employee_number}:{emp.employee_name}\n")
+                    f.write("\n")
+                f.write("\n")
+            cls.logger.debug("AuthRecipeHandler: wrote auth recipe")
+            return True
+        except Exception:
+            cls.logger.exception("AuthRecipeHandler: writing recipe file failed")
+            return False
+
+    @classmethod
+    def _fetch_employees(cls) -> list[Employee]:
+        """Fetches employee data from the API.
+
+        Returns:
+            list[Employee]: List of employee data dictionaries.
+        """
+        try:
+            employees = []
+            response = requests.get(cls.config.API_ENDPOINT, timeout=10)
+            response.raise_for_status()
+            raw_employees = response.json()
+            for item in raw_employees:
+                try:
+                    employees.append(cls.Employee.model_validate(item))
+                except ValidationError:
+                    pass
+            cls.logger.debug(
+                "AuthRecipeHandler: fetched %d employees from API", len(employees)
+            )
+            return employees
+        except Exception:
+            cls.logger.exception(
+                "AuthRecipeHandler: fetching employees from API failed"
+            )
+            return []
