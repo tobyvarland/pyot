@@ -1,10 +1,4 @@
-import json
-import os
-import socket
 import time
-from datetime import datetime
-
-import psutil
 
 from pyot.config import get_settings
 from pyot.handler import (
@@ -15,6 +9,7 @@ from pyot.handler import (
 )
 from pyot.logging import setup_logger
 from pyot.mqtt import default_client
+from pyot.tracking import Tracker
 
 # Load configuration
 config = get_settings()
@@ -32,6 +27,9 @@ def main() -> None:
     # Configure logger for MQTT client and handlers
     client.set_logger(log)
     BaseHandler.set_logger(log)
+
+    # Setup process tracker.
+    tracker = Tracker(config, client, log)
 
     # Configure handlers with necessary settings
     SyncShopOrderRecipesHandler.set_config(config.pull_shop_orders)
@@ -52,58 +50,8 @@ def main() -> None:
     try:
         client.start()
         log.debug("Press Ctrl+C to exit")
-        last_heartbeat = 0
-        last_version = None
-        version_count = 0
-        heartbeat_count = 0
-        process_start = time.time()
-        hostname = socket.gethostname()
-        pid = os.getpid()
-        process = psutil.Process(pid)
         while True:
-            now = time.time()
-            current_dt = datetime.now()
-            today = current_dt.date()
-            if today != last_version:
-                log.debug("Publishing version")
-                version_count += 1
-                payload = json.dumps(
-                    {
-                        "hostname": hostname,
-                        "timestamp": current_dt.isoformat(),
-                        "version": config.CURRENT_VERSION,
-                        "version_count": version_count,
-                    }
-                )
-                client.publish(
-                    f"pyot/version/{hostname}",
-                    payload,
-                    qos=1,
-                    retain=True,
-                )
-                last_version = today
-            if now - last_heartbeat >= config.HEARTBEAT_INTERVAL:
-                log.debug("Publishing heartbeat")
-                uptime = int(now - process_start)
-                memory = process.memory_info().rss
-                heartbeat_count += 1
-                payload = json.dumps(
-                    {
-                        "hostname": hostname,
-                        "timestamp": current_dt.isoformat(),
-                        "heartbeat_count": heartbeat_count,
-                        "uptime": uptime,
-                        "memory": memory,
-                        "pid": pid,
-                    }
-                )
-                client.publish(
-                    f"pyot/heartbeat/{hostname}",
-                    payload,
-                    qos=1,
-                    retain=True,
-                )
-                last_heartbeat = now
+            tracker.track()
             time.sleep(1)
     except KeyboardInterrupt:
         log.debug("Shutting down")

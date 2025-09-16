@@ -249,7 +249,7 @@ class AppConfig:
     push_to_server: PushToServerConfig
     annualize_logs: AnnualizeLogsConfig
 
-    CURRENT_VERSION: ClassVar[str] = "0.0.1"
+    CURRENT_VERSION: ClassVar[str] = "0.0.2"
     HEARTBEAT_INTERVAL: ClassVar[int] = 30
 
     @staticmethod
