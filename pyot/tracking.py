@@ -43,17 +43,14 @@ class Tracker:
         self.last_heartbeat = 0
 
     def track(self) -> None:
-        """Track and publish heartbeat and version information.
+        """Track and publish heartbeat.
 
-        This method checks if it's time to send a heartbeat
-        or if the application version has changed. If either condition is met,
-        it gathers system and process information, constructs a payload, and
-        publishes it to the MQTT broker. It also updates tracking variables
-        accordingly.
+        This method checks if it's time to send a heartbeat. If so, it gathers
+        system and process information, constructs a payload, and publishes it
+        to the MQTT broker.
         """
 
         now = time.time()
-        current_dt = datetime.now()
 
         # Publish heartbeat if interval has passed.
         if now - self.last_heartbeat >= self.config.HEARTBEAT_INTERVAL:
@@ -67,7 +64,7 @@ class Tracker:
             payload = json.dumps(
                 {
                     "hostname": self.hostname,
-                    "timestamp": current_dt.isoformat(),
+                    "timestamp": datetime.now().isoformat(),
                     "uptime": uptime,
                     "memory": memory,
                     "pid": self.pid,
