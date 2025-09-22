@@ -5,7 +5,7 @@ import shutil
 import socket
 import subprocess
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -153,10 +153,13 @@ class PushToServerHandler(BaseHandler):
 
         Uses WSL to execute rsync command. SSH key authentication must be set up.
 
+        Skips chart files for the current day to avoid versions in backup.
+
         Returns:
             bool: True if successful, False otherwise.
         """
         cls.logger.info("PushToServerHandler: pushing local data to server")
+        today = date.today().strftime("%y%m%d")
         cmd = ["wsl"] if cls.config.use_wsl else []
         cmd.extend(
             [
@@ -165,6 +168,7 @@ class PushToServerHandler(BaseHandler):
                 "--delete",
                 "-e",
                 "ssh -o StrictHostKeyChecking=accept-new",
+                f"--exclude=Charts/RD{today}.*",
                 cls.config.local_path,
                 f"{cls.config.remote_server}:{cls.config.remote_path}{socket.gethostname()}/",
             ]
