@@ -157,6 +157,7 @@ class PushToServerHandler(BaseHandler):
             bool: True if successful, False otherwise.
         """
         cls.logger.info("PushToServerHandler: pushing local data to server")
+        today = datetime.now().strftime("%y%m%d")
         cmd = ["wsl"] if cls.config.use_wsl else []
         cmd.extend(
             [
@@ -165,6 +166,7 @@ class PushToServerHandler(BaseHandler):
                 "--delete",
                 "-e",
                 "ssh -o StrictHostKeyChecking=accept-new",
+                f"--exclude=Charts/RD{today}.*",
                 cls.config.local_path,
                 f"{cls.config.remote_server}:{cls.config.remote_path}{socket.gethostname()}/",
             ]
