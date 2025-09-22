@@ -166,6 +166,7 @@ class PushToServerHandler(BaseHandler):
                 "rsync",
                 "-rt",
                 "--delete",
+                "--delete-excluded",
                 "-e",
                 "ssh -o StrictHostKeyChecking=accept-new",
                 f"--exclude=Charts/RD{today}.*",
