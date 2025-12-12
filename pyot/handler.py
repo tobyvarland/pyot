@@ -236,7 +236,6 @@ class PushToServerHandler(BaseHandler):
                 cls.config.remote_server,
                 "/bin/rsync",
                 "-a",
-                "--delete",
                 f"{cls.config.remote_path}{socket.gethostname()}/Logs/",
                 f"{cls.config.remote_log_path}{cls.config.log_folder_name}/",
             ]
