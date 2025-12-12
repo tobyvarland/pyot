@@ -228,14 +228,19 @@ class PushToServerHandler(BaseHandler):
         """
         cls.logger.info("PushToServerHandler: copying logs to user accessible folder")
         cmd = ["wsl"] if cls.config.use_wsl else []
+        rsync_args = [
+            "/bin/rsync",
+            "-a",
+        ]
+        if not cls.config.merge_logs:
+            rsync_args.append("--delete")
         cmd.extend(
             [
                 "/usr/bin/ssh",
                 "-o",
                 "StrictHostKeyChecking=accept-new",
                 cls.config.remote_server,
-                "/bin/rsync",
-                "-a",
+                *rsync_args,
                 f"{cls.config.remote_path}{socket.gethostname()}/Logs/",
                 f"{cls.config.remote_log_path}{cls.config.log_folder_name}/",
             ]

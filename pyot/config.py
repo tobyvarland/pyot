@@ -195,6 +195,7 @@ class PushToServerConfig:
 
     Attributes:
         centralize_logs (bool): Whether to centralize logs.
+        merge_logs (bool): Whether to merge logs.
         log_folder_name (str): Folder name for storing logs.
         use_wsl (bool): Whether to use WSL for rsync command.
         remote_server (str): Remote server SSH user and hostname.
@@ -206,6 +207,7 @@ class PushToServerConfig:
     """
 
     centralize_logs: bool
+    merge_logs: bool
     log_folder_name: str
     use_wsl: bool
     remote_server: str
@@ -318,6 +320,7 @@ class AppConfig:
         pull_shop_orders_wsl = _to_bool(_get_required("PULL_SHOP_ORDERS_USE_WSL"))
 
         centralize_logs = _to_bool(_get_required("PUSH_TO_SERVER_CENTRALIZE_LOGS"))
+        merge_logs = _to_bool(_get_required("PUSH_TO_SERVER_MERGE_LOGS"))
         logs_folder_name = _get("PUSH_TO_SERVER_LOG_FOLDER_NAME", socket.gethostname())
         push_to_server_wsl = _to_bool(_get_required("PULL_SHOP_ORDERS_USE_WSL"))
         push_to_server_server = _get_required("PUSH_TO_SERVER_REMOTE_SERVER")
@@ -357,6 +360,7 @@ class AppConfig:
             ),
             push_to_server=PushToServerConfig(
                 centralize_logs=centralize_logs,
+                merge_logs=merge_logs,
                 log_folder_name=logs_folder_name,
                 use_wsl=push_to_server_wsl,
                 remote_server=push_to_server_server,
