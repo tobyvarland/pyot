@@ -10,6 +10,11 @@ from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from typing import Optional, List, Dict
+from openpyxl import Workbook
+from openpyxl.styles import Font
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.table import Table, TableStyleInfo
+from openpyxl.styles import Alignment
 
 import requests
 from pydantic import BaseModel, Field, ValidationError
@@ -129,6 +134,11 @@ class PushToServerHandler(BaseHandler):
         try:
             aggregator = HoistAggregator(cls.config.hoist_aggregation)
             aggregator.run()
+            exporter = HoistExcelExporter(
+                cls.config.hoist_aggregation.output_file,
+                cls.config.hoist_aggregation.output_file.with_suffix(".xlsx"),
+            )
+            exporter.write()
             cls.logger.debug("PushToServerHandler: hoist data aggregation successful")
             return True
         except Exception:
@@ -670,8 +680,8 @@ class HoistAggregator:
             "Station Number": station_number_str,
             "Station Type": station_type,
 
-            "Loaded": self._format_datetime(loaded_dt),
-            "Unloaded": self._format_datetime(unloaded_dt),
+            "Date/Time Loaded": self._format_datetime(loaded_dt),
+            "Date/Time Unloaded": self._format_datetime(unloaded_dt),
             "Duration": self._format_duration(loaded_dt, unloaded_dt),
 
             "Customer": self._safe_get(raw, spec.indices.get("customer")),
@@ -713,8 +723,8 @@ class HoistAggregator:
                     "Lane Number",
                     "Station Number",
                     "Station Type",
-                    "Loaded",
-                    "Unloaded",
+                    "Date/Time Loaded",
+                    "Date/Time Unloaded",
                     "Duration",
                     "Customer",
                     "Part ID",
@@ -813,3 +823,204 @@ class HoistAggregator:
         h, r = divmod(seconds, 3600)
         m, s = divmod(r, 60)
         return f"{sign}{h}:{m:02d}:{s:02d}"
+    
+
+class HoistExcelExporter:
+    """Exports aggregated hoist data from CSV to a formatted Excel workbook.
+
+    Reads a consolidated hoist CSV file and produces an Excel (.xlsx) file with
+    predefined formatting, filters, column widths, and data types suitable for
+    analysis and reporting.
+    
+    Attributes:
+        csv_path (Path): Path to the source CSV file.
+        xlsx_path (Path): Path to the output Excel file.
+    """
+
+    """Columns containing datetime values."""
+    DATETIME_COLUMNS = {"Date/Time Loaded", "Date/Time Unloaded"}
+
+    """Columns containing floating-point numeric values."""
+    FLOAT_COLUMNS = {
+        "Target Amp Hours",
+        "Actual Amp Hours",
+        "Target Weight",
+        "Actual Weight",
+    }
+
+    """Columns containing integer values."""
+    INTEGER_COLUMNS = {"Hoist #", "Lane Number", "Station Number", "Shop Order", "Load Number", "Barrel Number", "Barrel Speed"}
+
+    """Columns that should be treated as text."""
+    TEXT_COLUMNS = {"Customer", "Part ID", "Station Type"}
+
+    """Columns that should be treated as percentages."""
+    PERCENTAGE_COLUMNS = {"Amp Hours Percent"}
+
+    """Excel table style to apply to the worksheet."""
+    TABLE_STYLE = "TableStyleMedium1"
+
+    def __init__(self, csv_path: Path, xlsx_path: Path) -> None:
+        """Initialize the Excel exporter.
+
+        Args:
+            csv_path (Path): Path to the consolidated CSV file.
+            xlsx_path (Path): Path to the Excel file to be written.
+        """
+        self.csv_path = csv_path
+        self.xlsx_path = xlsx_path
+
+    def write(self) -> None:
+        """Generate the Excel workbook from the CSV source.
+
+        Reads the CSV file, applies formatting and presentation rules, and writes
+        the resulting Excel workbook to disk.
+        """
+        rows = self._read_csv()
+        workbook = self._create_workbook(rows)
+        workbook.save(self.xlsx_path)
+
+    def _read_csv(self) -> list[list[str]]:
+        """Read all rows from the CSV source file.
+
+        Returns:
+            list[list[str]]: List of CSV rows.
+        """
+        with self.csv_path.open(newline="", encoding="utf-8") as f:
+            return list(csv.reader(f))
+
+    def _create_workbook(self, rows: list[list[str]]):
+        """Create and populate an Excel workbook from CSV rows.
+
+        Args:
+            rows (list[list[str]]): CSV data rows.
+
+        Returns:
+            Workbook: Populated Excel workbook.
+        """
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Hoist Data"
+        ws.sheet_format.defaultRowHeight = 21
+
+        header = rows[0]
+        ws.append(header)
+
+        for row in rows[1:]:
+            converted_row = []
+            for col_idx, value in enumerate(row):
+                col_name = header[col_idx] if col_idx < len(header) else ""
+                converted_row.append(self._convert_value(value, col_name))
+            ws.append(converted_row)
+
+        self._apply_filters(ws)
+        self._apply_table(ws)
+        self._format_columns(ws, header)
+
+        return wb
+    
+    def _convert_value(self, value: str, col_name: str):
+        """Convert a CSV string value to the appropriate Python type.
+
+        Args:
+            value (str): The string value from CSV.
+            col_name (str): The column name to determine type.
+
+        Returns:
+            The converted value (int, float, datetime, or str).
+        """
+        if not value or value.strip() == "":
+            return ""
+
+        try:
+            if col_name in self.DATETIME_COLUMNS:
+                return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+            elif col_name in self.INTEGER_COLUMNS:
+                return int(value)
+            elif col_name in self.FLOAT_COLUMNS or col_name in self.PERCENTAGE_COLUMNS:
+                return float(value)
+            elif col_name == "Duration":
+                is_negative = value.startswith("-")
+                clean_value = value.lstrip("-")
+                parts = clean_value.split(":")
+                hours = int(parts[0])
+                minutes = int(parts[1])
+                seconds = int(parts[2])
+                total_seconds = hours * 3600 + minutes * 60 + seconds
+                duration_days = total_seconds / 86400
+                return -duration_days if is_negative else duration_days
+        except (ValueError, TypeError):
+            pass
+
+        return value
+
+    def _apply_filters(self, ws) -> None:
+        """Enable column filters and freeze the header row.
+
+        Args:
+            ws: Worksheet to modify.
+        """
+        ws.freeze_panes = "A2"
+
+    def _apply_table(self, ws) -> None:
+        """Apply Excel table styling to the worksheet.
+
+        Args:
+            ws: Worksheet to modify.
+        """
+        table = Table(displayName="HoistAggregation", ref=ws.dimensions)
+        style = TableStyleInfo(
+            name=self.TABLE_STYLE,
+            showFirstColumn=False,
+            showLastColumn=False,
+            showRowStripes=True,
+            showColumnStripes=False,
+        )
+        table.tableStyleInfo = style
+        ws.add_table(table)
+
+    def _format_columns(self, ws, header: list[str]) -> None:
+        """Apply column widths and number formatting.
+
+        Args:
+            ws: Worksheet to modify.
+            header (list[str]): Column header names.
+        """
+        for col_idx, col_name in enumerate(header, start=1):
+            column_letter = get_column_letter(col_idx)
+
+            ws.column_dimensions[column_letter].width = max(
+                12, len(col_name) + 2
+            )
+
+            cells = ws[column_letter][1:]
+
+            if col_name in self.DATETIME_COLUMNS:
+                for cell in cells:
+                    cell.number_format = "mm/dd/yyyy hh:mm:ss"
+                    cell.alignment = Alignment(vertical='center')
+
+            elif col_name in self.FLOAT_COLUMNS:
+                for cell in cells:
+                    cell.number_format = "0.000"
+                    cell.alignment = Alignment(vertical='center')
+
+            elif col_name in self.INTEGER_COLUMNS:
+                for cell in cells:
+                    cell.number_format = "0"
+                    cell.alignment = Alignment(vertical='center')
+
+            elif col_name in self.PERCENTAGE_COLUMNS:
+                for cell in cells:
+                    cell.number_format = "0.00%"
+                    cell.alignment = Alignment(vertical='center')
+
+            elif col_name in self.TEXT_COLUMNS:
+                for cell in cells:
+                    cell.number_format = "@"
+                    cell.alignment = Alignment(vertical='center')
+
+            elif col_name == "Duration":
+                for cell in cells:
+                    cell.number_format = "[h]:mm:ss"
+                    cell.alignment = Alignment(vertical='center')
