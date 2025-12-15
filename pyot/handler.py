@@ -557,31 +557,65 @@ class AuthRecipeHandler(BaseHandler):
             )
             return []
 
+
 class HoistAggregator:
-    """Aggregates hoist CSV data into a single master CSV."""
+    """Aggregates hoist CSV data into a single master CSV file.
+
+    Reads multiple hoist data CSV files as defined in the provided
+    HoistAggregationConfig, normalizes and filters rows, derives additional
+    fields (such as station type and duration), sorts records chronologically,
+    and writes the consolidated result to a single output CSV file.
+
+    Attributes:
+        config (HoistAggregationConfig): Configuration object defining aggregation
+            behavior, source files, station type mappings, and output location.
+    """
 
     OUTPUT_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-    def __init__(self, config):
+    def __init__(self, config) -> None:
+        """Initialize the hoist aggregator.
+
+        Args:
+            config (HoistAggregationConfig): Aggregation configuration.
+        """
         self.config = config
 
     def run(self) -> None:
+        """Execute the hoist aggregation process.
+
+        If aggregation is disabled in the configuration, this method returns
+        immediately. Otherwise, it collects rows from all configured source
+        files, sorts them by load timestamp, and writes the consolidated output.
+        """
         if not self.config.enabled:
             return
+
         rows = self._collect_rows()
         rows.sort(key=lambda r: r["_sort"])
         self._write_output(rows)
 
     def _collect_rows(self) -> list[dict]:
+        """Collect normalized rows from all configured hoist data files.
+
+        Iterates over each HoistAggregationSpec in the configuration, reads the
+        corresponding CSV file, and processes each row.
+
+        Returns:
+            list[dict]: List of normalized row dictionaries.
+        """
         rows: list[dict] = []
+
         for spec in self.config.files:
             with spec.path.open(newline="", encoding="utf-8") as f:
                 reader = csv.reader(f)
-                next(reader, None)
+                next(reader, None)  # skip header row
+
                 for raw in reader:
                     row = self._process_row(raw, spec)
                     if row is not None:
                         rows.append(row)
+
         return rows
 
     def _process_row(
@@ -589,11 +623,25 @@ class HoistAggregator:
         raw: list[str],
         spec,
     ) -> Optional[dict]:
-        
+        """Process a single CSV row for a given hoist specification.
+
+        Applies filtering rules, parses timestamps, derives duration and station
+        type, and returns a normalized row dictionary. Rows that do not meet
+        validation or filtering criteria are discarded.
+
+        Args:
+            raw (list[str]): Raw CSV row values.
+            spec (HoistAggregationSpec): Specification describing how to interpret
+                the row.
+
+        Returns:
+            Optional[dict]: Normalized row dictionary, or None if the row should
+                be skipped.
+        """
         shop_order = self._safe_get(raw, spec.indices.get("shop_order"))
         if shop_order in ("", "0", "111"):
             return None
-        
+
         loaded_dt = self._parse_timestamp(
             self._safe_get(raw, spec.indices.get("date_in")),
             self._safe_get(raw, spec.indices.get("time_in")),
@@ -652,6 +700,11 @@ class HoistAggregator:
         }
 
     def _write_output(self, rows: list[dict]) -> None:
+        """Write aggregated hoist data to the configured output CSV file.
+
+        Args:
+            rows (list[dict]): Normalized and sorted row dictionaries.
+        """
         with self.config.output_file.open("w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(
                 f,
@@ -684,12 +737,29 @@ class HoistAggregator:
 
     @staticmethod
     def _safe_get(row: list[str], index: Optional[int]) -> str:
+        """Safely retrieve and strip a value from a CSV row.
+
+        Args:
+            row (list[str]): CSV row values.
+            index (Optional[int]): Column index.
+
+        Returns:
+            str: Stripped value or empty string if unavailable.
+        """
         if index is None or index < 0 or index >= len(row):
             return ""
         return row[index].strip()
 
     @staticmethod
     def _to_int(value: str) -> Optional[int]:
+        """Convert a string to an integer if possible.
+
+        Args:
+            value (str): String value.
+
+        Returns:
+            Optional[int]: Parsed integer or None if conversion fails.
+        """
         try:
             return int(value)
         except ValueError:
@@ -697,6 +767,15 @@ class HoistAggregator:
 
     @staticmethod
     def _parse_timestamp(date_str: str, time_str: str) -> Optional[datetime]:
+        """Parse a YYMMDD / HHMMSS timestamp into a datetime.
+
+        Args:
+            date_str (str): Date string in YYMMDD format.
+            time_str (str): Time string in HHMMSS format.
+
+        Returns:
+            Optional[datetime]: Parsed datetime or None if parsing fails.
+        """
         if not date_str or not time_str:
             return None
         try:
@@ -707,10 +786,27 @@ class HoistAggregator:
             return None
 
     def _format_datetime(self, dt: datetime) -> str:
+        """Format a datetime for CSV output.
+
+        Args:
+            dt (datetime): Datetime to format.
+
+        Returns:
+            str: Formatted datetime string.
+        """
         return dt.strftime(self.OUTPUT_DATE_FORMAT)
 
     @staticmethod
     def _format_duration(start: datetime, end: datetime) -> str:
+        """Format the duration between two datetimes as H:MM:SS.
+
+        Args:
+            start (datetime): Start time.
+            end (datetime): End time.
+
+        Returns:
+            str: Duration string.
+        """
         seconds = int((end - start).total_seconds())
         sign = "-" if seconds < 0 else ""
         seconds = abs(seconds)
