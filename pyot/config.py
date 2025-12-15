@@ -7,7 +7,8 @@ import socket
 from dataclasses import dataclass
 from datetime import timedelta
 from functools import lru_cache
-from typing import ClassVar, List, Optional
+from typing import ClassVar, List, Optional, Dict
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -148,6 +149,44 @@ def _to_ip(value: str):
     return ipaddress.ip_address(value)
 
 
+def _parse_hoist_agg_indices(spec: str) -> Dict[str, Optional[int]]:
+    """Parse hoist aggregation indices from environment variable.
+
+    Args:
+        spec (str): Input string.
+    """
+    result: Dict[str, Optional[int]] = {}
+    for item in spec.split(","):
+        key, value = item.split(":", 1)
+        result[key] = int(value) if value != "" else None
+    return result
+
+def _parse_hoist_agg_station_types(spec: str) -> dict[tuple[int, int], str]:
+    """Parse hoist aggregation station types from environment variable.
+
+    Args:
+        spec (str): Input string.
+    """
+    result: dict[tuple[int, int], str] = {}
+    if not spec:
+        return result
+    for raw_item in spec.split(","):
+        item = raw_item.strip()
+        if not item:
+            continue
+        parts = item.split(":", 2)
+        if len(parts) != 3:
+            continue
+        lane_str, station_str, station_type = parts
+        try:
+            lane = int(lane_str)
+            station = int(station_str)
+        except ValueError:
+            continue
+        result[(lane, station)] = station_type.strip()
+    return result
+
+
 @dataclass(frozen=True)
 class BrokerConfig:
     """MQTT Broker configuration.
@@ -190,6 +229,42 @@ class PullShopOrdersConfig:
 
 
 @dataclass(frozen=True)
+class HoistAggregationSpec:
+    """Spec for hoist aggregation.
+
+    Attributes:
+        path (Path): Path to the file.
+        hoist (int): Hoist number.
+        lane (int): Lane number.
+        indices (Dict[str, Optional[int]]): Indices for different fields.
+    """
+
+    path: Path
+    hoist: int
+    lane: int
+    indices: Dict[str, Optional[int]]
+
+
+@dataclass(frozen=True)
+class HoistAggregationConfig:
+    """Config for hoist aggregation.
+
+    Attributes:
+        enabled (bool): Whether to enable hoist aggregation.
+        hoist_count (int): Number of hoists to aggregate.
+        output_file (Path): Output file path for the aggregated data.
+        station_types (Dict[tuple[int, int], str]): Station type definitions for department.
+        files (List[HoistAggregationSpec]): List of hoist aggregation specifications.
+    """
+
+    enabled: bool
+    hoist_count: int
+    output_file: Path
+    station_types: Dict[tuple[int, int], str]
+    files: List[HoistAggregationSpec]
+
+
+@dataclass(frozen=True)
 class PushToServerConfig:
     """Config for pushing local data to central server.
 
@@ -202,6 +277,7 @@ class PushToServerConfig:
         remote_path (str): Remote path to push data to.
         remote_log_path (str): Remote path to push logs to.
         local_path (str): Local path to push data from.
+        hoist_aggregation (HoistAggregationConfig): Hoist aggregation configuration.
 
         TOPIC (ClassVar[str]): MQTT topic for shop order recipes.
     """
@@ -214,6 +290,7 @@ class PushToServerConfig:
     remote_path: str
     remote_log_path: str
     local_path: str
+    hoist_aggregation: HoistAggregationConfig
     TOPIC: ClassVar[str] = "plc/push_to_server"
 
 
@@ -283,7 +360,7 @@ class AppConfig:
     annualize_logs: AnnualizeLogsConfig
     auth_recipe_writer: AuthRecipeWriterConfig
 
-    CURRENT_VERSION: ClassVar[str] = "0.0.7"
+    CURRENT_VERSION: ClassVar[str] = "0.0.8"
     HEARTBEAT_INTERVAL: ClassVar[int] = 30
     HEARTBEAT_QOS: ClassVar[int] = 1
     HEARTBEAT_TOPIC: ClassVar[str] = "pyot/heartbeat"
@@ -337,6 +414,22 @@ class AppConfig:
         create_auth_recipes_folder = _get_required("CREATE_AUTH_RECIPES_FOLDER")
         create_auth_recipes_filename = _get_required("CREATE_AUTH_RECIPES_FILENAME")
 
+        hoist_aggregation_enabled = _to_bool(_get_required("HOIST_DATA_AGG_ENABLE"))
+        hoist_aggregation_count = _to_int(_get_required("HOIST_DATA_AGG_COUNT"))
+        hoist_aggregation_output_file = Path(push_to_server_local + "Logs/" + _get_required("HOIST_DATA_AGG_OUTPUT_FILE"))
+        hoist_aggregation_station_types = _parse_hoist_agg_station_types(_get_required("HOIST_DATA_AGG_STATION_TYPES"))
+        hoist_aggregation_files: List[HoistAggregationSpec] = []
+        if hoist_aggregation_enabled and hoist_aggregation_count > 0:
+            for i in range(1, hoist_aggregation_count + 1):
+                hoist_aggregation_files.append(
+                    HoistAggregationSpec(
+                        path=Path(push_to_server_local + "Logs/" + _get_required(f"HOIST_DATA_AGG_{i}_FILE")),
+                        hoist=_to_int(_get_required(f"HOIST_DATA_AGG_{i}_HOIST")),
+                        lane=_to_int(_get_required(f"HOIST_DATA_AGG_{i}_LANE")),
+                        indices=_parse_hoist_agg_indices(_get_required(f"HOIST_DATA_AGG_{i}_INDICES")),
+                    )
+                )
+
         # Determine full CA path if given
         if mqtt_ca:
             parent_dir = os.path.dirname(os.path.dirname(__file__))
@@ -367,6 +460,13 @@ class AppConfig:
                 remote_path=push_to_server_remote,
                 remote_log_path=push_to_server_remote_logs,
                 local_path=push_to_server_local,
+                hoist_aggregation=HoistAggregationConfig(
+                    enabled=hoist_aggregation_enabled,
+                    hoist_count=hoist_aggregation_count,
+                    output_file=hoist_aggregation_output_file,
+                    station_types=hoist_aggregation_station_types,
+                    files=hoist_aggregation_files,
+                ),
             ),
             annualize_logs=AnnualizeLogsConfig(logs_directory=annualize_logs_directory),
             auth_recipe_writer=AuthRecipeWriterConfig(
