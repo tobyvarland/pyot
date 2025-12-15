@@ -4,10 +4,12 @@ import shlex
 import shutil
 import socket
 import subprocess
+import csv
 from abc import ABC, abstractmethod
 from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
+from typing import Optional, List, Dict
 
 import requests
 from pydantic import BaseModel, Field, ValidationError
@@ -105,13 +107,33 @@ class PushToServerHandler(BaseHandler):
         cls.logger.debug("PushToServerHandler: message received on topic: %s", topic)
 
         # Call methods using short circuit evaluation
-        steps = [cls._create_data_directory, cls._push_to_server]
+        steps = [cls._create_data_directory]
+        if cls.config.hoist_aggregation.enabled:
+            steps.append(cls._aggregate_hoist_data)
+        steps.append(cls._push_to_server)
         if cls.config.centralize_logs:
             steps.extend([cls._create_log_directory, cls._copy_logs])
         if all(f() for f in steps):
             cls.logger.debug("PushToServerHandler: all handlers successful")
         else:
             cls.logger.warning("PushToServerHandler: handler failed")
+
+    @classmethod
+    def _aggregate_hoist_data(cls) -> bool:
+        """Aggregate hoist data.
+
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        cls.logger.info("PushToServerHandler: aggregating hoist data")
+        try:
+            aggregator = HoistAggregator(cls.config.hoist_aggregation)
+            aggregator.run()
+            cls.logger.debug("PushToServerHandler: hoist data aggregation successful")
+            return True
+        except Exception:
+            cls.logger.exception("PushToServerHandler: hoist data aggregation failed")
+            return False
 
     @classmethod
     def _create_data_directory(cls) -> bool:
@@ -534,3 +556,166 @@ class AuthRecipeHandler(BaseHandler):
                 "AuthRecipeHandler: fetching employees from API failed"
             )
             return []
+
+class HoistAggregator:
+    """Aggregates hoist CSV data into a single master CSV."""
+
+    OUTPUT_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+    def __init__(self, config):
+        self.config = config
+
+    def run(self) -> None:
+        if not self.config.enabled:
+            return
+        rows = self._collect_rows()
+        rows.sort(key=lambda r: r["_sort"])
+        self._write_output(rows)
+
+    def _collect_rows(self) -> list[dict]:
+        rows: list[dict] = []
+        for spec in self.config.files:
+            with spec.path.open(newline="", encoding="utf-8") as f:
+                reader = csv.reader(f)
+                next(reader, None)
+                for raw in reader:
+                    row = self._process_row(raw, spec)
+                    if row is not None:
+                        rows.append(row)
+        return rows
+
+    def _process_row(
+        self,
+        raw: list[str],
+        spec,
+    ) -> Optional[dict]:
+        
+        shop_order = self._safe_get(raw, spec.indices.get("shop_order"))
+        if shop_order in ("", "0", "111"):
+            return None
+        
+        loaded_dt = self._parse_timestamp(
+            self._safe_get(raw, spec.indices.get("date_in")),
+            self._safe_get(raw, spec.indices.get("time_in")),
+        )
+        unloaded_dt = self._parse_timestamp(
+            self._safe_get(raw, spec.indices.get("date_out")),
+            self._safe_get(raw, spec.indices.get("time_out")),
+        )
+
+        if not loaded_dt or not unloaded_dt:
+            return None
+
+        station_number_str = self._safe_get(raw, spec.indices.get("station"))
+        station_number = self._to_int(station_number_str)
+
+        station_type = ""
+        if station_number is not None:
+            station_type = self.config.station_types.get(
+                (spec.lane, station_number),
+                ""
+            )
+
+        return {
+            "Hoist #": spec.hoist,
+            "Lane Number": spec.lane,
+            "Station Number": station_number_str,
+            "Station Type": station_type,
+
+            "Loaded": self._format_datetime(loaded_dt),
+            "Unloaded": self._format_datetime(unloaded_dt),
+            "Duration": self._format_duration(loaded_dt, unloaded_dt),
+
+            "Customer": self._safe_get(raw, spec.indices.get("customer")),
+            "Part ID": self._force_text(
+                self._safe_get(raw, spec.indices.get("part"))
+            ),
+            "Shop Order": shop_order,
+            "Load Number": self._safe_get(raw, spec.indices.get("load")),
+            "Barrel Number": self._safe_get(raw, spec.indices.get("barrel")),
+
+            "Target Amp Hours":
+                self._safe_get(raw, spec.indices.get("target_ah"))
+                if station_type == "PLATE" else "",
+
+            "Actual Amp Hours":
+                self._safe_get(raw, spec.indices.get("actual_ah"))
+                if station_type == "PLATE" else "",
+
+            "Amp Hours Percent":
+                self._safe_get(raw, spec.indices.get("ah_pct"))
+                if station_type == "PLATE" else "",
+
+            "Barrel Speed": self._safe_get(raw, spec.indices.get("barrel_speed")),
+            "Target Weight": self._safe_get(raw, spec.indices.get("target_weight")),
+            "Actual Weight": self._safe_get(raw, spec.indices.get("actual_weight")),
+
+            "_sort": loaded_dt,
+        }
+
+    def _write_output(self, rows: list[dict]) -> None:
+        with self.config.output_file.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    "Hoist #",
+                    "Lane Number",
+                    "Station Number",
+                    "Station Type",
+                    "Loaded",
+                    "Unloaded",
+                    "Duration",
+                    "Customer",
+                    "Part ID",
+                    "Shop Order",
+                    "Load Number",
+                    "Barrel Number",
+                    "Target Amp Hours",
+                    "Actual Amp Hours",
+                    "Amp Hours Percent",
+                    "Barrel Speed",
+                    "Target Weight",
+                    "Actual Weight",
+                ],
+            )
+            writer.writeheader()
+
+            for row in rows:
+                row.pop("_sort", None)
+                writer.writerow(row)
+
+    @staticmethod
+    def _safe_get(row: list[str], index: Optional[int]) -> str:
+        if index is None or index < 0 or index >= len(row):
+            return ""
+        return row[index].strip()
+
+    @staticmethod
+    def _to_int(value: str) -> Optional[int]:
+        try:
+            return int(value)
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _parse_timestamp(date_str: str, time_str: str) -> Optional[datetime]:
+        if not date_str or not time_str:
+            return None
+        try:
+            while len(time_str) < 6:
+                time_str = "0" + time_str
+            return datetime.strptime(f"{date_str}{time_str}", "%y%m%d%H%M%S")
+        except ValueError:
+            return None
+
+    def _format_datetime(self, dt: datetime) -> str:
+        return dt.strftime(self.OUTPUT_DATE_FORMAT)
+
+    @staticmethod
+    def _format_duration(start: datetime, end: datetime) -> str:
+        seconds = int((end - start).total_seconds())
+        sign = "-" if seconds < 0 else ""
+        seconds = abs(seconds)
+        h, r = divmod(seconds, 3600)
+        m, s = divmod(r, 60)
+        return f"{sign}{h}:{m:02d}:{s:02d}"
