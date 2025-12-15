@@ -627,9 +627,7 @@ class HoistAggregator:
             "Duration": self._format_duration(loaded_dt, unloaded_dt),
 
             "Customer": self._safe_get(raw, spec.indices.get("customer")),
-            "Part ID": self._force_text(
-                self._safe_get(raw, spec.indices.get("part"))
-            ),
+            "Part ID": self._safe_get(raw, spec.indices.get("part")),
             "Shop Order": shop_order,
             "Load Number": self._safe_get(raw, spec.indices.get("load")),
             "Barrel Number": self._safe_get(raw, spec.indices.get("barrel")),
