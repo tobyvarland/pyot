@@ -252,14 +252,14 @@ class HoistAggregationConfig:
     Attributes:
         enabled (bool): Whether to enable hoist aggregation.
         hoist_count (int): Number of hoists to aggregate.
-        output_file (str): Output file path for the aggregated data.
+        output_file (Path): Output file path for the aggregated data.
         station_types (Dict[tuple[int, int], str]): Station type definitions for department.
         files (List[HoistAggregationSpec]): List of hoist aggregation specifications.
     """
 
     enabled: bool
     hoist_count: int
-    output_file: str
+    output_file: Path
     station_types: Dict[tuple[int, int], str]
     files: List[HoistAggregationSpec]
 
@@ -416,14 +416,14 @@ class AppConfig:
 
         hoist_aggregation_enabled = _to_bool(_get_required("HOIST_DATA_AGG_ENABLE"))
         hoist_aggregation_count = _to_int(_get_required("HOIST_DATA_AGG_COUNT"))
-        hoist_aggregation_output_file = _get_required("HOIST_DATA_AGG_OUTPUT_FILE")
+        hoist_aggregation_output_file = Path(push_to_server_local + "Logs/" + _get_required("HOIST_DATA_AGG_OUTPUT_FILE"))
         hoist_aggregation_station_types = _parse_hoist_agg_station_types(_get_required("HOIST_DATA_AGG_STATION_TYPES"))
         hoist_aggregation_files: List[HoistAggregationSpec] = []
         if hoist_aggregation_enabled and hoist_aggregation_count > 0:
             for i in range(1, hoist_aggregation_count + 1):
                 hoist_aggregation_files.append(
                     HoistAggregationSpec(
-                        path=Path(_get_required(f"HOIST_DATA_AGG_{i}_FILE")),
+                        path=Path(push_to_server_local + "Logs/" + _get_required(f"HOIST_DATA_AGG_{i}_FILE")),
                         hoist=_to_int(_get_required(f"HOIST_DATA_AGG_{i}_HOIST")),
                         lane=_to_int(_get_required(f"HOIST_DATA_AGG_{i}_LANE")),
                         indices=_parse_hoist_agg_indices(_get_required(f"HOIST_DATA_AGG_{i}_INDICES")),
