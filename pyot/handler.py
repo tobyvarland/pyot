@@ -14,7 +14,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
-from openpyxl.styles import Alignment
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.formatting.rule import CellIsRule
 
 import requests
 from pydantic import BaseModel, Field, ValidationError
@@ -901,7 +902,6 @@ class HoistExcelExporter:
         wb = Workbook()
         ws = wb.active
         ws.title = "Hoist Data"
-        ws.sheet_format.defaultRowHeight = 21
 
         header = rows[0]
         ws.append(header)
@@ -915,7 +915,9 @@ class HoistExcelExporter:
 
         self._apply_filters(ws)
         self._apply_table(ws)
+        self._format_rows(ws)
         self._format_columns(ws, header)
+        self._apply_conditional_formatting(ws, header)
 
         return wb
     
@@ -979,6 +981,15 @@ class HoistExcelExporter:
         table.tableStyleInfo = style
         ws.add_table(table)
 
+    def _format_rows(self, ws) -> None:
+        """Apply row height to all rows.
+
+        Args:
+            ws: Worksheet to modify.
+        """
+        for row_num in range(1, ws.max_row + 1):
+            ws.row_dimensions[row_num].height = 21
+
     def _format_columns(self, ws, header: list[str]) -> None:
         """Apply column widths and number formatting.
 
@@ -986,41 +997,158 @@ class HoistExcelExporter:
             ws: Worksheet to modify.
             header (list[str]): Column header names.
         """
+        # Define column-specific settings
+        column_config = {
+            "Hoist #": {
+                "width": 10,
+                "alignment": "center",
+                "number_format": "0"
+            },
+            "Lane Number": {
+                "width": 15,
+                "alignment": "center",
+                "number_format": "0"
+            },
+            "Station Number": {
+                "width": 15,
+                "alignment": "center",
+                "number_format": "0"
+            },
+            "Station Type": {
+                "width": 15,
+                "alignment": "center",
+                "number_format": "@"
+            },
+            "Date/Time Loaded": {
+                "width": 20,
+                "alignment": "left",
+                "number_format": "mm/dd/yyyy hh:mm:ss"
+            },
+            "Date/Time Unloaded": {
+                "width": 20,
+                "alignment": "left",
+                "number_format": "mm/dd/yyyy hh:mm:ss"
+            },
+            "Duration": {
+                "width": 12,
+                "alignment": "center",
+                "number_format": "[h]:mm:ss"
+            },
+            "Customer": {
+                "width": 12,
+                "alignment": "left",
+                "number_format": "@"
+            },
+            "Part ID": {
+                "width": 25,
+                "alignment": "left",
+                "number_format": "@"
+            },
+            "Shop Order": {
+                "width": 12,
+                "alignment": "center",
+                "number_format": "0"
+            },
+            "Load Number": {
+                "width": 12,
+                "alignment": "center",
+                "number_format": "0"
+            },
+            "Barrel Number": {
+                "width": 14,
+                "alignment": "center",
+                "number_format": "0"
+            },
+            "Target Amp Hours": {
+                "width": 18,
+                "alignment": "right",
+                "number_format": "0.0"
+            },
+            "Actual Amp Hours": {
+                "width": 18,
+                "alignment": "right",
+                "number_format": "0.0"
+            },
+            "Amp Hours Percent": {
+                "width": 18,
+                "alignment": "right",
+                "number_format": "0.00%"
+            },
+            "Barrel Speed": {
+                "width": 12,
+                "alignment": "center",
+                "number_format": "0"
+            },
+            "Target Weight": {
+                "width": 14,
+                "alignment": "right",
+                "number_format": "0.0"
+            },
+            "Actual Weight": {
+                "width": 14,
+                "alignment": "right",
+                "number_format": "0.0"
+            },
+        }
+
         for col_idx, col_name in enumerate(header, start=1):
             column_letter = get_column_letter(col_idx)
+            
+            # Get configuration for this column
+            config = column_config.get(col_name, {
+                "width": 12,
+                "alignment": "left",
+                "number_format": "General"
+            })
 
-            ws.column_dimensions[column_letter].width = max(
-                12, len(col_name) + 2
+            # Set column width
+            ws.column_dimensions[column_letter].width = config["width"]
+
+            # Apply formatting to cells
+            ws[column_letter][0].alignment = Alignment(
+                horizontal=config["alignment"],
+                vertical='center'
             )
-
             cells = ws[column_letter][1:]
+            for cell in cells:
+                cell.number_format = config["number_format"]
+                cell.alignment = Alignment(
+                    horizontal=config["alignment"],
+                    vertical='center'
+                )
 
-            if col_name in self.DATETIME_COLUMNS:
-                for cell in cells:
-                    cell.number_format = "mm/dd/yyyy hh:mm:ss"
-                    cell.alignment = Alignment(vertical='center')
+    def _apply_conditional_formatting(self, ws, header: list[str]) -> None:
+        """Apply conditional formatting rules.
 
-            elif col_name in self.FLOAT_COLUMNS:
-                for cell in cells:
-                    cell.number_format = "0.000"
-                    cell.alignment = Alignment(vertical='center')
-
-            elif col_name in self.INTEGER_COLUMNS:
-                for cell in cells:
-                    cell.number_format = "0"
-                    cell.alignment = Alignment(vertical='center')
-
-            elif col_name in self.PERCENTAGE_COLUMNS:
-                for cell in cells:
-                    cell.number_format = "0.00%"
-                    cell.alignment = Alignment(vertical='center')
-
-            elif col_name in self.TEXT_COLUMNS:
-                for cell in cells:
-                    cell.number_format = "@"
-                    cell.alignment = Alignment(vertical='center')
-
-            elif col_name == "Duration":
-                for cell in cells:
-                    cell.number_format = "[h]:mm:ss"
-                    cell.alignment = Alignment(vertical='center')
+        Args:
+            ws: Worksheet to modify.
+            header (list[str]): Column header names.
+        """
+        # Find the Amp Hours Percent column
+        try:
+            amp_hours_col_idx = header.index("Amp Hours Percent") + 1
+            amp_hours_col_letter = get_column_letter(amp_hours_col_idx)
+            
+            # Define the range (skip header row, go to max row)
+            range_str = f"{amp_hours_col_letter}2:{amp_hours_col_letter}{ws.max_row}"
+            
+            # Red bold font for values < 90%
+            red_bold_font = Font(color="FF0000", bold=True)
+            rule_low = CellIsRule(
+                operator='lessThan',
+                formula=['0.9'],
+                font=red_bold_font
+            )
+            ws.conditional_formatting.add(range_str, rule_low)
+            
+            # Red bold font for values > 110%
+            rule_high = CellIsRule(
+                operator='greaterThan',
+                formula=['1.1'],
+                font=red_bold_font
+            )
+            ws.conditional_formatting.add(range_str, rule_high)
+            
+        except ValueError:
+            # Column not found, skip conditional formatting
+            pass
