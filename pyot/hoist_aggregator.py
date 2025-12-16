@@ -14,5 +14,7 @@ def main():
     )
     exporter.write()
 
+    config.output_file.unlink()
+
 if __name__ == "__main__":
     main()
