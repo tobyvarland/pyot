@@ -360,7 +360,7 @@ class AppConfig:
     annualize_logs: AnnualizeLogsConfig
     auth_recipe_writer: AuthRecipeWriterConfig
 
-    CURRENT_VERSION: ClassVar[str] = "0.0.11"
+    CURRENT_VERSION: ClassVar[str] = "0.0.12"
     HEARTBEAT_INTERVAL: ClassVar[int] = 30
     HEARTBEAT_QOS: ClassVar[int] = 1
     HEARTBEAT_TOPIC: ClassVar[str] = "pyot/heartbeat"

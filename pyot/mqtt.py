@@ -292,14 +292,24 @@ class MQTTClient:
             msg: The received MQTTMessage.
         """
         self.log.debug("MQTT message topic=%s payload=%r", msg.topic, msg.payload)
-        handler = self._match_handler(msg.topic)
-        if handler is None:
-            handler = self._user_on_message
+        handler = self._match_handler(msg.topic) or self._user_on_message
         if handler:
-            try:
-                handler(msg.topic, msg.payload)
-            except Exception:
-                self.log.exception("Error in message handler for topic %s", msg.topic)
+            threading.Thread(
+                target=self._run_handler_safe,
+                args=(handler, msg.topic, msg.payload),
+                daemon=True,
+            ).start()
+
+    def _run_handler_safe(
+        self,
+        handler: MessageHandler,
+        topic: str,
+        payload: bytes,
+    ) -> None:
+        try:
+            handler(topic, payload)
+        except Exception:
+            self.log.exception("Error in message handler for topic %s", topic)
 
     def _match_handler(self, topic: str) -> Optional[MessageHandler]:
         """
