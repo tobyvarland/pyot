@@ -159,7 +159,7 @@ class HoistAggregator:
             "Target Weight": self._safe_get(raw, spec.indices.get("target_weight")),
             "Actual Weight": self._safe_get(raw, spec.indices.get("actual_weight")),
 
-            "_sort": loaded_dt,
+            "_sort": unloaded_dt,
         }
 
     def _write_output(self, rows: list[dict]) -> None:
