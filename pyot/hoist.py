@@ -124,6 +124,9 @@ class HoistAggregator:
                 ""
             )
 
+        if not station_type:
+            return None
+
         return {
             "Hoist #": spec.hoist,
             "Lane Number": spec.lane,
