@@ -11,12 +11,6 @@ from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from typing import Optional, List, Dict
-# from openpyxl import Workbook
-# from openpyxl.styles import Font
-# from openpyxl.utils import get_column_letter
-# from openpyxl.worksheet.table import Table, TableStyleInfo
-# from openpyxl.styles import Alignment, Font, PatternFill
-# from openpyxl.formatting.rule import CellIsRule
 
 import requests
 from pydantic import BaseModel, Field, ValidationError
@@ -117,7 +111,7 @@ class PushToServerHandler(BaseHandler):
         steps = [cls._create_data_directory]
         if cls.config.hoist_aggregation.enabled:
             steps.append(cls._aggregate_hoist_data)
-        steps.append(cls._push_to_server)
+        steps.extend([cls._push_to_server, cls._apply_permissions])
         if cls.config.centralize_logs:
             steps.extend([cls._create_log_directory, cls._copy_logs, cls._apply_log_permissions])
         if all(f() for f in steps):
@@ -200,6 +194,9 @@ class PushToServerHandler(BaseHandler):
             [
                 "rsync",
                 "-rt",
+                "--no-perms",
+                "--no-owner",
+                "--no-group",
                 "--delete",
                 "--delete-excluded",
                 "-e",
@@ -314,6 +311,40 @@ class PushToServerHandler(BaseHandler):
                 "/usr/syno/bin/synoacltool",
                 "-enforce-inherit",
                 f"{cls.config.remote_log_path}{cls.config.log_folder_name}/",
+            ]
+        )
+        cls.logger.debug(
+            "PushToServerHandler: starting remote synoacltool: %s", shlex.join(cmd)
+        )
+        try:
+            subprocess.check_call(cmd)
+            cls.logger.debug("PushToServerHandler: synoacltool successful")
+            return True
+        except Exception:
+            cls.logger.exception("PushToServerHandler: synoacltool failed")
+            return False
+        
+
+    @classmethod
+    def _apply_permissions(cls) -> bool:
+        """Apply permissions on remote server.
+
+        Executes synoacltool via SSH on remote server. SSH key authentication must be set up.
+
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        cls.logger.info("PushToServerHandler: applying log permissions on server")
+        cmd = ["wsl"] if cls.config.use_wsl else []
+        cmd.extend(
+            [
+                "/usr/bin/ssh",
+                "-o",
+                "StrictHostKeyChecking=accept-new",
+                cls.config.remote_server,
+                "/usr/syno/bin/synoacltool",
+                "-enforce-inherit",
+                f"{cls.config.remote_path}{socket.gethostname()}/",
             ]
         )
         cls.logger.debug(
