@@ -101,15 +101,42 @@ class HoistAggregator:
         shop_order = self._safe_get(raw, spec.indices.get("shop_order"))
         if shop_order in ("", "0", "111"):
             return None
-
-        loaded_dt = self._parse_timestamp(
-            self._safe_get(raw, spec.indices.get("date_in")),
-            self._safe_get(raw, spec.indices.get("time_in")),
-        )
-        unloaded_dt = self._parse_timestamp(
-            self._safe_get(raw, spec.indices.get("date_out")),
-            self._safe_get(raw, spec.indices.get("time_out")),
-        )
+        
+        if "date_in" in spec.indices and "time_in" in spec.indices:
+            loaded_dt = self._parse_timestamp(
+                self._safe_get(raw, spec.indices.get("date_in")),
+                self._safe_get(raw, spec.indices.get("time_in")),
+            )
+        else:
+            try:
+                date_part, time_part = self._safe_get(raw, spec.indices.get("dt_in")).split()
+                month, day, year = map(int, date_part.split("/"))
+                reformatted_date = f"{year % 100:02d}{month:02d}{day:02d}"
+                reformatted_time = time_part.replace(":", "")
+                loaded_dt = self._parse_timestamp(
+                    reformatted_date,
+                    reformatted_time,
+                )
+            except Exception:
+                loaded_dt = None
+        
+        if "date_out" in spec.indices and "time_out" in spec.indices:
+            unloaded_dt = self._parse_timestamp(
+                self._safe_get(raw, spec.indices.get("date_out")),
+                self._safe_get(raw, spec.indices.get("time_out")),
+            )
+        else:
+            try:
+                date_part, time_part = self._safe_get(raw, spec.indices.get("dt_out")).split()
+                month, day, year = map(int, date_part.split("/"))
+                reformatted_date = f"{year % 100:02d}{month:02d}{day:02d}"
+                reformatted_time = time_part.replace(":", "")
+                unloaded_dt = self._parse_timestamp(
+                    reformatted_date,
+                    reformatted_time,
+                )
+            except Exception:
+                unloaded_dt = None
 
         if not loaded_dt or not unloaded_dt:
             return None
@@ -126,6 +153,19 @@ class HoistAggregator:
 
         if not station_type:
             return None
+        
+        actual_ah = ""
+        if station_type == "PLATE" and "actual_ah" not in spec.indices.values():
+            target_ah = self._safe_get(raw, spec.indices.get("target_ah"))
+            ah_pct = self._safe_get(raw, spec.indices.get("ah_pct"))
+            if target_ah and ah_pct:
+                try:
+                    actual_ah_value = float(target_ah) * float(ah_pct)
+                    actual_ah = f"{actual_ah_value:.3f}"
+                except ValueError:
+                    actual_ah = ""
+        else:
+            actual_ah = self._safe_get(raw, spec.indices.get("actual_ah"))
 
         return {
             "Hoist #": spec.hoist,
@@ -148,7 +188,7 @@ class HoistAggregator:
                 if station_type == "PLATE" else "",
 
             "Actual Amp Hours":
-                self._safe_get(raw, spec.indices.get("actual_ah"))
+                actual_ah
                 if station_type == "PLATE" else "",
 
             "Amp Hours Percent":
