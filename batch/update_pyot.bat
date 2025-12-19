@@ -12,7 +12,7 @@ rem --- Git update (safe directory, fetch, pull) ---
 
 rem --- Python deps (if requirements.txt exists) ---
 if exist "%FOLDER%\requirements.txt" (
-  "%FOLDER%\.venv\Scripts\pip.exe" install --upgrade pip
+  rem "%FOLDER%\.venv\Scripts\pip.exe" install --upgrade pip
   "%FOLDER%\.venv\Scripts\pip.exe" install -r "%FOLDER%\requirements.txt" || (echo Pip install failed.& exit /b 1)
 )
 

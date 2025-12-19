@@ -253,6 +253,7 @@ class HoistAggregationConfig:
         enabled (bool): Whether to enable hoist aggregation.
         hoist_count (int): Number of hoists to aggregate.
         output_file (Path): Output file path for the aggregated data.
+        amp_hour_output_file (Path): Output file path for the aggregated amp hour data.
         station_types (Dict[tuple[int, int], str]): Station type definitions for department.
         files (List[HoistAggregationSpec]): List of hoist aggregation specifications.
     """
@@ -260,6 +261,7 @@ class HoistAggregationConfig:
     enabled: bool
     hoist_count: int
     output_file: Path
+    amp_hour_output_file: Path
     station_types: Dict[tuple[int, int], str]
     files: List[HoistAggregationSpec]
 
@@ -418,6 +420,7 @@ class AppConfig:
         hoist_aggregation_base_folder = _get_required("HOIST_DATA_AGG_BASE_FOLDER")
         hoist_aggregation_count = _to_int(_get_required("HOIST_DATA_AGG_COUNT"))
         hoist_aggregation_output_file = Path(hoist_aggregation_base_folder + _get_required("HOIST_DATA_AGG_OUTPUT_FILE"))
+        hoist_aggregation_amp_hour_output_file = Path(hoist_aggregation_base_folder + _get_required("HOIST_DATA_AGG_AH_OUTPUT_FILE"))
         hoist_aggregation_station_types = _parse_hoist_agg_station_types(_get_required("HOIST_DATA_AGG_STATION_TYPES"))
         hoist_aggregation_files: List[HoistAggregationSpec] = []
         if hoist_aggregation_enabled and hoist_aggregation_count > 0:
@@ -465,6 +468,7 @@ class AppConfig:
                     enabled=hoist_aggregation_enabled,
                     hoist_count=hoist_aggregation_count,
                     output_file=hoist_aggregation_output_file,
+                    amp_hour_output_file=hoist_aggregation_amp_hour_output_file,
                     station_types=hoist_aggregation_station_types,
                     files=hoist_aggregation_files,
                 ),

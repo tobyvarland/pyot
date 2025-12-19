@@ -8,7 +8,7 @@ if not exist "%FOLDER%\.venv\Scripts\python.exe" (
     "C:\Users\plant\AppData\Local\Programs\Python\Python313\python.exe" -m venv "%FOLDER%\.venv"
 )
 if exist "%FOLDER%\requirements.txt" (
-  "%FOLDER%\.venv\Scripts\pip.exe" install --upgrade pip
+  rem "%FOLDER%\.venv\Scripts\pip.exe" install --upgrade pip
   "%FOLDER%\.venv\Scripts\pip.exe" install -r "%FOLDER%\requirements.txt" || (echo Pip install failed.& exit /b 1)
 )
 
